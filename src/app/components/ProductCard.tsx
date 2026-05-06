@@ -31,7 +31,8 @@ export function ProductCard({ product }: ProductCardProps) {
   const handleAdd = (e: React.MouseEvent) => {
     e.preventDefault();
     if (product.stock === 0) return;
-    addToCart(product, 1);
+    // Quick-add from card: no grind/weight selection (defaults)
+    addToCart(product, 1, { unitPrice: product.price });
     toast.success(`${product.name} added to cart!`, {
       description: `$${product.price.toFixed(2)}`,
     });

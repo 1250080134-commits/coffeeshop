@@ -5,6 +5,7 @@ import { HomePage } from './pages/HomePage';
 import { ShopPage } from './pages/ShopPage';
 import { ProductDetailPage } from './pages/ProductDetailPage';
 import { CheckoutPage } from './pages/CheckoutPage';
+import { OrderHistoryPage } from './pages/OrderHistoryPage';
 import { AdminDashboard } from './pages/admin/AdminDashboard';
 import { AdminInventory } from './pages/admin/AdminInventory';
 import { AdminOrders } from './pages/admin/AdminOrders';
@@ -21,6 +22,7 @@ export const router = createBrowserRouter([
       { path: 'shop', Component: ShopPage },
       { path: 'product/:id', Component: ProductDetailPage },
       { path: 'checkout', Component: CheckoutPage },
+      { path: 'orders', Component: OrderHistoryPage },
       { path: 'story', Component: HomePage },
       { path: 'guides', Component: HomePage },
     ],

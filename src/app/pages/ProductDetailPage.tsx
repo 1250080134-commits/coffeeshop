@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft, ShoppingCart, Star, Minus, Plus, Leaf, Globe, Coffee } from 'lucide-react';
+import { ArrowLeft, ShoppingCart, Star, Minus, Plus, Leaf, Globe, Coffee, ChevronDown } from 'lucide-react';
 import { useParams, Link, useNavigate } from 'react-router';
 import { products } from '../data/mockData';
 import { useCart } from '../context/CartContext';
@@ -12,11 +12,28 @@ const roastBadge: Record<string, string> = {
   Dark: 'bg-[#2C1810] text-white',
 };
 
+const GRIND_OPTIONS = [
+  { id: 'Whole Bean', label: 'Whole Bean', desc: 'Grind fresh at home' },
+  { id: 'Espresso', label: 'Espresso', desc: 'Fine · Espresso machines' },
+  { id: 'Pour Over', label: 'Pour Over', desc: 'Medium-fine · V60, Chemex' },
+  { id: 'Drip', label: 'Drip / Filter', desc: 'Medium · Drip machines' },
+  { id: 'French Press', label: 'French Press', desc: 'Coarse · Cold Brew too' },
+];
+
+const WEIGHT_OPTIONS = [
+  { label: '250g', multiplier: 1.0 },
+  { label: '500g', multiplier: 1.8 },
+  { label: '1kg', multiplier: 3.4 },
+];
+
 export function ProductDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { addToCart } = useCart();
   const [quantity, setQuantity] = useState(1);
+  const [selectedGrind, setSelectedGrind] = useState('Whole Bean');
+  const [selectedWeight, setSelectedWeight] = useState('250g');
+  const [grindDropdownOpen, setGrindDropdownOpen] = useState(false);
 
   const product = products.find(p => p.id === id);
 
@@ -31,6 +48,12 @@ export function ProductDetailPage() {
     );
   }
 
+  const isCoffee = product.categoryId !== 'cat-3'; // not accessories
+  const isWholeBean = product.categoryId === 'cat-1'; // whole bean category
+
+  const weightMultiplier = WEIGHT_OPTIONS.find(w => w.label === selectedWeight)?.multiplier ?? 1;
+  const unitPrice = parseFloat((product.price * weightMultiplier).toFixed(2));
+
   const related = products.filter(p => p.id !== product.id && p.categoryId === product.categoryId).slice(0, 3);
 
   const handleAddToCart = () => {
@@ -38,11 +61,18 @@ export function ProductDetailPage() {
       toast.error(`Only ${product.stock} in stock.`);
       return;
     }
-    addToCart(product, quantity);
-    toast.success(`${product.name} added to cart!`);
+    addToCart(product, quantity, {
+      grindSize: isCoffee ? selectedGrind : undefined,
+      selectedWeight: isCoffee ? selectedWeight : undefined,
+      unitPrice,
+    });
+    toast.success(`${product.name} added to cart!`, {
+      description: isCoffee ? `${selectedGrind} · ${selectedWeight}` : undefined,
+    });
   };
 
   const roastPercent = product.roastLevel === 'Light' ? 25 : product.roastLevel === 'Medium' ? 60 : 90;
+  const selectedGrindOption = GRIND_OPTIONS.find(g => g.id === selectedGrind);
 
   return (
     <div className="min-h-screen bg-[#FAF3EB]">
@@ -114,12 +144,15 @@ export function ProductDetailPage() {
 
             {/* Price */}
             <div className="flex items-baseline gap-3 mb-6">
-              <span className="text-3xl text-[#2C1810] font-medium">${product.price.toFixed(2)}</span>
-              {product.originalPrice && (
+              <span className="text-3xl text-[#2C1810] font-medium">${unitPrice.toFixed(2)}</span>
+              {product.originalPrice && selectedWeight === '250g' && (
                 <span className="text-lg text-[#8B5E3C] line-through">${product.originalPrice.toFixed(2)}</span>
               )}
-              {product.weight && (
-                <span className="text-sm text-[#8B5E3C]">/ {product.weight}</span>
+              <span className="text-sm text-[#8B5E3C]">/ {selectedWeight}</span>
+              {weightMultiplier > 1 && (
+                <span className="text-xs bg-[#4A6741]/10 text-[#4A6741] px-2 py-0.5 rounded-full">
+                  ~${(product.price / 250 * (selectedWeight === '500g' ? 500 : 1000) * (1 / weightMultiplier)).toFixed(1)}/100g saved
+                </span>
               )}
             </div>
 
@@ -159,6 +192,93 @@ export function ProductDetailPage() {
               </div>
             )}
 
+            {/* ── Coffee-specific selectors ── */}
+            {isCoffee && (
+              <div className="space-y-4 mb-6">
+                {/* Weight selector */}
+                <div>
+                  <p className="text-xs text-[#8B5E3C] uppercase tracking-wider mb-2">Weight</p>
+                  <div className="flex gap-2">
+                    {WEIGHT_OPTIONS.map(opt => (
+                      <button
+                        key={opt.label}
+                        onClick={() => setSelectedWeight(opt.label)}
+                        className={`flex-1 py-2.5 px-3 rounded-xl border-2 text-sm transition-all ${
+                          selectedWeight === opt.label
+                            ? 'border-[#2C1810] bg-[#2C1810] text-[#FAF3EB]'
+                            : 'border-[rgba(44,24,16,0.15)] text-[#8B5E3C] hover:border-[#8B5E3C] bg-white'
+                        }`}
+                      >
+                        <span className="block">{opt.label}</span>
+                        <span className={`text-xs ${selectedWeight === opt.label ? 'text-[#C4A882]' : 'text-[#8B5E3C]/70'}`}>
+                          ${(product.price * opt.multiplier).toFixed(2)}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Grind selector (only for coffee, show dropdown for whole bean / pre-ground) */}
+                <div>
+                  <p className="text-xs text-[#8B5E3C] uppercase tracking-wider mb-2">
+                    Grind Size{!isWholeBean && ' (Pre-ground default shown)'}
+                  </p>
+
+                  {/* Desktop: button row */}
+                  <div className="hidden sm:grid grid-cols-5 gap-1.5">
+                    {GRIND_OPTIONS.map(opt => (
+                      <button
+                        key={opt.id}
+                        onClick={() => setSelectedGrind(opt.id)}
+                        title={opt.desc}
+                        className={`py-2 px-1 rounded-xl border-2 text-center transition-all ${
+                          selectedGrind === opt.id
+                            ? 'border-[#2C1810] bg-[#2C1810] text-[#FAF3EB]'
+                            : 'border-[rgba(44,24,16,0.15)] text-[#8B5E3C] hover:border-[#8B5E3C] bg-white'
+                        }`}
+                      >
+                        <span className="block text-xs leading-tight">{opt.label}</span>
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Mobile: dropdown */}
+                  <div className="sm:hidden relative">
+                    <button
+                      onClick={() => setGrindDropdownOpen(!grindDropdownOpen)}
+                      className="w-full flex items-center justify-between px-4 py-3 bg-white border border-[rgba(44,24,16,0.15)] rounded-xl text-sm text-[#2C1810]"
+                    >
+                      <div>
+                        <span>{selectedGrindOption?.label}</span>
+                        <span className="text-xs text-[#8B5E3C] ml-2">— {selectedGrindOption?.desc}</span>
+                      </div>
+                      <ChevronDown size={14} className={`text-[#8B5E3C] transition-transform ${grindDropdownOpen ? 'rotate-180' : ''}`} />
+                    </button>
+                    {grindDropdownOpen && (
+                      <div className="absolute top-full left-0 right-0 bg-white border border-[rgba(44,24,16,0.12)] rounded-xl mt-1 shadow-lg z-10 overflow-hidden">
+                        {GRIND_OPTIONS.map(opt => (
+                          <button
+                            key={opt.id}
+                            onClick={() => { setSelectedGrind(opt.id); setGrindDropdownOpen(false); }}
+                            className={`w-full px-4 py-3 text-left text-sm transition-colors ${
+                              selectedGrind === opt.id ? 'bg-[#F0E4D4] text-[#2C1810]' : 'text-[#8B5E3C] hover:bg-[#FAF3EB]'
+                            }`}
+                          >
+                            <span className="font-medium text-[#2C1810]">{opt.label}</span>
+                            <span className="text-xs ml-2 text-[#8B5E3C]">— {opt.desc}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {selectedGrindOption && (
+                    <p className="text-xs text-[#8B5E3C] mt-1.5">{selectedGrindOption.desc}</p>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Add to cart */}
             {product.stock > 0 ? (
               <>
@@ -185,7 +305,7 @@ export function ProductDetailPage() {
                   className="w-full flex items-center justify-center gap-2 py-4 bg-[#2C1810] text-[#FAF3EB] rounded-full hover:bg-[#3D2318] transition-colors font-medium"
                 >
                   <ShoppingCart size={18} />
-                  Add to Cart — ${(product.price * quantity).toFixed(2)}
+                  Add to Cart — ${(unitPrice * quantity).toFixed(2)}
                 </button>
               </>
             ) : (

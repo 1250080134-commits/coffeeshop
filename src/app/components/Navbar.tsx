@@ -1,16 +1,21 @@
 import { useState } from 'react';
-import { ShoppingCart, Coffee, Menu, X, Search, User } from 'lucide-react';
+import { ShoppingCart, Coffee, Menu, X, Search, User, LogOut, Package, ChevronDown } from 'lucide-react';
 import { Link, useNavigate } from 'react-router';
 import { useCart } from '../context/CartContext';
+import { useAuth } from '../context/AuthContext';
+import { toast } from 'sonner';
 
 interface NavbarProps {
   onCartOpen: () => void;
+  onAuthOpen: () => void;
   isAdmin?: boolean;
 }
 
-export function Navbar({ onCartOpen, isAdmin = false }: NavbarProps) {
+export function Navbar({ onCartOpen, onAuthOpen, isAdmin = false }: NavbarProps) {
   const { totalItems } = useCart();
+  const { user, isAuthenticated, logout } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
   const navigate = useNavigate();
 
   const navLinks = isAdmin
@@ -25,6 +30,13 @@ export function Navbar({ onCartOpen, isAdmin = false }: NavbarProps) {
         { label: 'Our Story', to: '/story' },
         { label: 'Brewing Guides', to: '/guides' },
       ];
+
+  const handleLogout = () => {
+    logout();
+    setUserMenuOpen(false);
+    toast.success("You've been signed out.");
+    navigate('/');
+  };
 
   return (
     <header className="sticky top-0 z-50 bg-[#2C1810] text-[#FAF3EB] shadow-lg">
@@ -54,7 +66,7 @@ export function Navbar({ onCartOpen, isAdmin = false }: NavbarProps) {
           </nav>
 
           {/* Right actions */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             {!isAdmin && (
               <>
                 <button
@@ -64,6 +76,8 @@ export function Navbar({ onCartOpen, isAdmin = false }: NavbarProps) {
                 >
                   <Search size={18} />
                 </button>
+
+                {/* Cart */}
                 <button
                   onClick={onCartOpen}
                   className="relative p-2 rounded-full hover:bg-[#3D2318] transition-colors"
@@ -76,15 +90,69 @@ export function Navbar({ onCartOpen, isAdmin = false }: NavbarProps) {
                     </span>
                   )}
                 </button>
-                <Link
-                  to="/admin"
-                  className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-xs bg-[#4A6741] hover:bg-[#3d5836] rounded-full transition-colors"
-                >
-                  <User size={12} />
-                  Admin
-                </Link>
+
+                {/* User / Auth */}
+                {isAuthenticated && user ? (
+                  <div className="relative hidden sm:block">
+                    <button
+                      onClick={() => setUserMenuOpen(!userMenuOpen)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-[#3D2318] hover:bg-[#4a2c1e] rounded-full transition-colors"
+                    >
+                      <div className="w-5 h-5 rounded-full bg-[#C4A882] flex items-center justify-center">
+                        <span className="text-[10px] text-[#2C1810] font-medium">
+                          {user.name.charAt(0).toUpperCase()}
+                        </span>
+                      </div>
+                      <span className="max-w-[80px] truncate">{user.name.split(' ')[0]}</span>
+                      <ChevronDown size={11} />
+                    </button>
+
+                    {userMenuOpen && (
+                      <>
+                        <div className="fixed inset-0 z-40" onClick={() => setUserMenuOpen(false)} />
+                        <div className="absolute right-0 top-full mt-2 w-44 bg-white rounded-xl shadow-lg border border-[rgba(44,24,16,0.08)] z-50 overflow-hidden">
+                          <div className="px-4 py-3 border-b border-[rgba(44,24,16,0.06)]">
+                            <p className="text-xs font-medium text-[#2C1810] truncate">{user.name}</p>
+                            <p className="text-xs text-[#8B5E3C] truncate">{user.email}</p>
+                          </div>
+                          <Link
+                            to="/orders"
+                            onClick={() => setUserMenuOpen(false)}
+                            className="flex items-center gap-2 px-4 py-2.5 text-sm text-[#2C1810] hover:bg-[#FAF3EB] transition-colors"
+                          >
+                            <Package size={13} /> Order History
+                          </Link>
+                          {user.role === 'Admin' && (
+                            <Link
+                              to="/admin"
+                              onClick={() => setUserMenuOpen(false)}
+                              className="flex items-center gap-2 px-4 py-2.5 text-sm text-[#2C1810] hover:bg-[#FAF3EB] transition-colors"
+                            >
+                              <User size={13} /> Admin Portal
+                            </Link>
+                          )}
+                          <button
+                            onClick={handleLogout}
+                            className="flex items-center gap-2 w-full px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors border-t border-[rgba(44,24,16,0.06)]"
+                          >
+                            <LogOut size={13} /> Sign Out
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                ) : (
+                  <button
+                    onClick={onAuthOpen}
+                    className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-xs bg-[#C4A882] text-[#2C1810] hover:bg-[#E8D0B5] rounded-full transition-colors font-medium"
+                  >
+                    <User size={12} />
+                    Sign In
+                  </button>
+                )}
               </>
             )}
+
             {isAdmin && (
               <Link
                 to="/"
@@ -93,6 +161,7 @@ export function Navbar({ onCartOpen, isAdmin = false }: NavbarProps) {
                 View Shop
               </Link>
             )}
+
             <button
               className="md:hidden p-2 rounded-full hover:bg-[#3D2318] transition-colors"
               onClick={() => setMobileOpen(!mobileOpen)}
@@ -118,13 +187,41 @@ export function Navbar({ onCartOpen, isAdmin = false }: NavbarProps) {
               </Link>
             ))}
             {!isAdmin && (
-              <Link
-                to="/admin"
-                onClick={() => setMobileOpen(false)}
-                className="text-[#E8D0B5] hover:text-white text-sm py-1"
-              >
-                Admin Dashboard
-              </Link>
+              <>
+                {isAuthenticated && user ? (
+                  <>
+                    <Link
+                      to="/orders"
+                      onClick={() => setMobileOpen(false)}
+                      className="text-[#E8D0B5] hover:text-white text-sm py-1"
+                    >
+                      Order History
+                    </Link>
+                    <button
+                      onClick={() => { handleLogout(); setMobileOpen(false); }}
+                      className="text-left text-red-400 hover:text-red-300 text-sm py-1"
+                    >
+                      Sign Out ({user.name.split(' ')[0]})
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={() => { onAuthOpen(); setMobileOpen(false); }}
+                    className="text-[#C4A882] hover:text-white text-sm py-1 text-left"
+                  >
+                    Sign In / Create Account
+                  </button>
+                )}
+                {user?.role === 'Admin' && (
+                  <Link
+                    to="/admin"
+                    onClick={() => setMobileOpen(false)}
+                    className="text-[#E8D0B5] hover:text-white text-sm py-1"
+                  >
+                    Admin Dashboard
+                  </Link>
+                )}
+              </>
             )}
           </nav>
         </div>

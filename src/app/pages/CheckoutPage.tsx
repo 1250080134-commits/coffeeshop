@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { ArrowLeft, CheckCircle, Package } from 'lucide-react';
+import { ArrowLeft, CheckCircle, Package, CreditCard, Smartphone, DollarSign, Lock } from 'lucide-react';
 import { Link, useNavigate } from 'react-router';
 import { useCart } from '../context/CartContext';
+import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
 import { products } from '../data/mockData';
 
-type Step = 'shipping' | 'review' | 'confirmation';
+type Step = 'shipping' | 'payment' | 'review' | 'confirmation';
 
 interface ShippingForm {
   firstName: string;
@@ -18,48 +19,94 @@ interface ShippingForm {
   country: string;
 }
 
-const initialForm: ShippingForm = {
+interface PaymentForm {
+  method: 'card' | 'paypal' | 'applepay';
+  cardName: string;
+  cardNumber: string;
+  cardExpiry: string;
+  cardCvv: string;
+}
+
+const initialShipping: ShippingForm = {
   firstName: '', lastName: '', email: '',
   street: '', city: '', state: '', zip: '', country: 'USA',
 };
 
+const initialPayment: PaymentForm = {
+  method: 'card',
+  cardName: '', cardNumber: '', cardExpiry: '', cardCvv: '',
+};
+
+const STEPS: { key: Step; label: string }[] = [
+  { key: 'shipping', label: 'Shipping' },
+  { key: 'payment', label: 'Payment' },
+  { key: 'review', label: 'Review' },
+];
+
 export function CheckoutPage() {
   const { items, subtotal, clearCart } = useCart();
+  const { user } = useAuth();
   const navigate = useNavigate();
+
   const [step, setStep] = useState<Step>('shipping');
-  const [form, setForm] = useState<ShippingForm>(initialForm);
-  const [errors, setErrors] = useState<Partial<ShippingForm>>({});
-  const [orderId] = useState(`ORD-2024-${String(Math.floor(Math.random() * 900) + 100)}`);
+  const [shipping, setShipping] = useState<ShippingForm>(() => ({
+    ...initialShipping,
+    firstName: user?.name.split(' ')[0] || '',
+    lastName: user?.name.split(' ').slice(1).join(' ') || '',
+    email: user?.email || '',
+  }));
+  const [payment, setPayment] = useState<PaymentForm>(initialPayment);
+  const [shippingErrors, setShippingErrors] = useState<Partial<ShippingForm>>({});
+  const [paymentErrors, setPaymentErrors] = useState<Partial<PaymentForm>>({});
+  const [orderId] = useState(`ORD-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 900) + 100)}`);
 
-  const shipping = subtotal >= 75 ? 0 : 5.99;
-  const total = subtotal + shipping;
+  const shippingCost = subtotal >= 75 ? 0 : 5.99;
+  const total = subtotal + shippingCost;
 
-  // Stock validation
+  // Real-time stock validation
   const stockIssues = items.filter(item => {
     const prod = products.find(p => p.id === item.product.id);
     return prod && prod.stock < item.quantity;
   });
 
-  const validate = (): boolean => {
-    const newErrors: Partial<ShippingForm> = {};
-    if (!form.firstName.trim()) newErrors.firstName = 'Required';
-    if (!form.lastName.trim()) newErrors.lastName = 'Required';
-    if (!form.email.includes('@')) newErrors.email = 'Valid email required';
-    if (!form.street.trim()) newErrors.street = 'Required';
-    if (!form.city.trim()) newErrors.city = 'Required';
-    if (!form.state.trim()) newErrors.state = 'Required';
-    if (!form.zip.trim()) newErrors.zip = 'Required';
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+  // ── Validation ─────────────────────────────────────────────────────────────
+  const validateShipping = (): boolean => {
+    const errs: Partial<ShippingForm> = {};
+    if (!shipping.firstName.trim()) errs.firstName = 'Required';
+    if (!shipping.lastName.trim()) errs.lastName = 'Required';
+    if (!shipping.email.includes('@')) errs.email = 'Valid email required';
+    if (!shipping.street.trim()) errs.street = 'Required';
+    if (!shipping.city.trim()) errs.city = 'Required';
+    if (!shipping.state.trim()) errs.state = 'Required';
+    if (!shipping.zip.trim()) errs.zip = 'Required';
+    setShippingErrors(errs);
+    return Object.keys(errs).length === 0;
   };
 
-  const handleShippingSubmit = (e: React.FormEvent) => {
+  const validatePayment = (): boolean => {
+    if (payment.method !== 'card') return true;
+    const errs: Partial<PaymentForm> = {};
+    if (!payment.cardName.trim()) errs.cardName = 'Required';
+    if (payment.cardNumber.replace(/\s/g, '').length < 16) errs.cardNumber = 'Enter a valid 16-digit card number';
+    if (!payment.cardExpiry.match(/^\d{2}\/\d{2}$/)) errs.cardExpiry = 'Format: MM/YY';
+    if (payment.cardCvv.length < 3) errs.cardCvv = 'Invalid CVV';
+    setPaymentErrors(errs);
+    return Object.keys(errs).length === 0;
+  };
+
+  // ── Handlers ───────────────────────────────────────────────────────────────
+  const handleShippingNext = (e: React.FormEvent) => {
     e.preventDefault();
     if (stockIssues.length > 0) {
       toast.error('Some items are out of stock. Please update your cart.');
       return;
     }
-    if (validate()) setStep('review');
+    if (validateShipping()) setStep('payment');
+  };
+
+  const handlePaymentNext = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (validatePayment()) setStep('review');
   };
 
   const handlePlaceOrder = () => {
@@ -68,6 +115,26 @@ export function CheckoutPage() {
     toast.success('Order placed successfully!');
   };
 
+  // ── Shared field component ─────────────────────────────────────────────────
+  const ShipField = ({ label, name, type = 'text', half = false }: { label: string; name: keyof ShippingForm; type?: string; half?: boolean }) => (
+    <div className={half ? 'flex-1' : 'w-full'}>
+      <label className="block text-xs text-[#8B5E3C] mb-1">{label}</label>
+      <input
+        type={type}
+        value={shipping[name]}
+        onChange={e => {
+          setShipping(prev => ({ ...prev, [name]: e.target.value }));
+          if (shippingErrors[name]) setShippingErrors(prev => ({ ...prev, [name]: undefined }));
+        }}
+        className={`w-full px-4 py-2.5 bg-[#F5EBE0] border rounded-xl text-sm text-[#2C1810] placeholder-[#8B5E3C]/50 focus:outline-none focus:ring-2 focus:ring-[#8B5E3C]/30 ${
+          shippingErrors[name] ? 'border-red-400' : 'border-transparent'
+        }`}
+      />
+      {shippingErrors[name] && <p className="text-xs text-red-500 mt-1">{shippingErrors[name]}</p>}
+    </div>
+  );
+
+  // ── Empty cart guard ───────────────────────────────────────────────────────
   if (items.length === 0 && step !== 'confirmation') {
     return (
       <div className="min-h-screen bg-[#FAF3EB] flex items-center justify-center px-4">
@@ -83,6 +150,7 @@ export function CheckoutPage() {
     );
   }
 
+  // ── Confirmation screen ────────────────────────────────────────────────────
   if (step === 'confirmation') {
     return (
       <div className="min-h-screen bg-[#FAF3EB] flex items-center justify-center px-4">
@@ -91,23 +159,30 @@ export function CheckoutPage() {
             <CheckCircle size={40} className="text-[#4A6741]" />
           </div>
           <h1 className="font-serif text-3xl text-[#2C1810] mb-2">Order Confirmed!</h1>
-          <p className="text-[#8B5E3C] mb-2">Thank you, <strong>{form.firstName}</strong>!</p>
+          <p className="text-[#8B5E3C] mb-2">Thank you, <strong>{shipping.firstName}</strong>!</p>
           <p className="text-sm text-[#8B5E3C] mb-6">
-            Your order <strong className="text-[#2C1810]">{orderId}</strong> has been placed and is being processed.
-            A confirmation will be sent to <strong>{form.email}</strong>.
+            Your order <strong className="text-[#2C1810]">{orderId}</strong> has been placed.
+            A confirmation will be sent to <strong>{shipping.email}</strong>.
           </p>
           <div className="bg-[#F0E4D4] rounded-2xl p-4 mb-6 text-left">
             <p className="text-xs text-[#8B5E3C] mb-1">Shipping to</p>
             <p className="text-sm text-[#2C1810]">
-              {form.firstName} {form.lastName}<br />
-              {form.street}, {form.city}, {form.state} {form.zip}
+              {shipping.firstName} {shipping.lastName}<br />
+              {shipping.street}, {shipping.city}, {shipping.state} {shipping.zip}
+            </p>
+            <p className="text-xs text-[#8B5E3C] mt-2">
+              Payment via {payment.method === 'card' ? 'Credit Card' : payment.method === 'paypal' ? 'PayPal' : 'Apple Pay'}
+              {payment.method === 'card' && payment.cardNumber && ` ···· ${payment.cardNumber.replace(/\s/g, '').slice(-4)}`}
             </p>
           </div>
           <div className="flex flex-col gap-3">
-            <Link to="/shop" className="w-full py-3 bg-[#2C1810] text-[#FAF3EB] rounded-full text-sm font-medium">
+            <Link to="/orders" className="w-full py-3 bg-[#4A6741] text-white rounded-full text-sm font-medium hover:bg-[#3d5836] transition-colors">
+              View Order History
+            </Link>
+            <Link to="/shop" className="w-full py-3 bg-[#2C1810] text-[#FAF3EB] rounded-full text-sm font-medium hover:bg-[#3D2318] transition-colors">
               Continue Shopping
             </Link>
-            <Link to="/" className="w-full py-3 border border-[rgba(44,24,16,0.12)] text-[#8B5E3C] rounded-full text-sm">
+            <Link to="/" className="w-full py-3 border border-[rgba(44,24,16,0.12)] text-[#8B5E3C] rounded-full text-sm hover:bg-[#F0E4D4] transition-colors">
               Back to Home
             </Link>
           </div>
@@ -116,23 +191,8 @@ export function CheckoutPage() {
     );
   }
 
-  const Field = ({ label, name, type = 'text', half = false }: { label: string; name: keyof ShippingForm; type?: string; half?: boolean }) => (
-    <div className={half ? 'flex-1' : 'w-full'}>
-      <label className="block text-xs text-[#8B5E3C] mb-1">{label}</label>
-      <input
-        type={type}
-        value={form[name]}
-        onChange={e => {
-          setForm(prev => ({ ...prev, [name]: e.target.value }));
-          if (errors[name]) setErrors(prev => ({ ...prev, [name]: undefined }));
-        }}
-        className={`w-full px-4 py-2.5 bg-[#F5EBE0] border rounded-xl text-sm text-[#2C1810] placeholder-[#8B5E3C]/50 focus:outline-none focus:ring-2 focus:ring-[#8B5E3C]/30 ${
-          errors[name] ? 'border-red-400' : 'border-transparent'
-        }`}
-      />
-      {errors[name] && <p className="text-xs text-red-500 mt-1">{errors[name]}</p>}
-    </div>
-  );
+  // ── Step indicator helper ──────────────────────────────────────────────────
+  const stepIndex = STEPS.findIndex(s => s.key === step);
 
   return (
     <div className="min-h-screen bg-[#FAF3EB] py-8 px-4">
@@ -143,63 +203,65 @@ export function CheckoutPage() {
 
         <h1 className="font-serif text-3xl text-[#2C1810] mb-6">Checkout</h1>
 
-        {/* Steps */}
-        <div className="flex items-center gap-3 mb-8">
-          {['Shipping', 'Review'].map((s, i) => {
-            const stepKey = s.toLowerCase() as Step;
-            const active = step === stepKey;
-            const done = (step === 'review' && i === 0);
+        {/* Step indicator */}
+        <div className="flex items-center gap-2 mb-8 flex-wrap">
+          {STEPS.map((s, i) => {
+            const isActive = step === s.key;
+            const isDone = i < stepIndex;
             return (
-              <div key={s} className="flex items-center gap-3">
-                <div className={`flex items-center gap-2 text-sm ${active ? 'text-[#2C1810]' : done ? 'text-[#4A6741]' : 'text-[#8B5E3C]'}`}>
-                  <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs ${active ? 'bg-[#2C1810] text-white' : done ? 'bg-[#4A6741] text-white' : 'bg-[#F0E4D4] text-[#8B5E3C]'}`}>
-                    {done ? '✓' : i + 1}
+              <div key={s.key} className="flex items-center gap-2">
+                <div className={`flex items-center gap-2 text-sm ${isActive ? 'text-[#2C1810]' : isDone ? 'text-[#4A6741]' : 'text-[#8B5E3C]'}`}>
+                  <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium ${
+                    isActive ? 'bg-[#2C1810] text-white' : isDone ? 'bg-[#4A6741] text-white' : 'bg-[#F0E4D4] text-[#8B5E3C]'
+                  }`}>
+                    {isDone ? '✓' : i + 1}
                   </div>
-                  {s}
+                  {s.label}
                 </div>
-                {i < 1 && <div className="w-8 h-px bg-[rgba(44,24,16,0.12)]" />}
+                {i < STEPS.length - 1 && <div className="w-8 h-px bg-[rgba(44,24,16,0.12)]" />}
               </div>
             );
           })}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Main */}
+          {/* ── Main form ──────────────────────────────────────────────────── */}
           <div className="lg:col-span-2">
+
+            {/* STEP 1: Shipping */}
             {step === 'shipping' && (
-              <form onSubmit={handleShippingSubmit} className="bg-white rounded-2xl p-6 shadow-sm">
+              <form onSubmit={handleShippingNext} className="bg-white rounded-2xl p-6 shadow-sm">
                 <h2 className="font-medium text-[#2C1810] mb-5">Shipping Information</h2>
 
                 {stockIssues.length > 0 && (
                   <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-5 text-sm text-red-700">
-                    <strong>Stock issue:</strong> {stockIssues.map(i => i.product.name).join(', ')} {stockIssues.length === 1 ? 'has' : 'have'} insufficient stock. Please update your cart.
+                    <strong>Stock issue:</strong> {stockIssues.map(i => i.product.name).join(', ')} {stockIssues.length === 1 ? 'has' : 'have'} insufficient stock.
                   </div>
                 )}
 
                 <div className="space-y-4">
                   <div className="flex gap-4">
-                    <Field label="First Name" name="firstName" half />
-                    <Field label="Last Name" name="lastName" half />
+                    <ShipField label="First Name" name="firstName" half />
+                    <ShipField label="Last Name" name="lastName" half />
                   </div>
-                  <Field label="Email Address" name="email" type="email" />
-                  <Field label="Street Address" name="street" />
+                  <ShipField label="Email Address" name="email" type="email" />
+                  <ShipField label="Street Address" name="street" />
                   <div className="flex gap-4">
-                    <Field label="City" name="city" half />
-                    <Field label="State" name="state" half />
+                    <ShipField label="City" name="city" half />
+                    <ShipField label="State" name="state" half />
                   </div>
                   <div className="flex gap-4">
-                    <Field label="ZIP Code" name="zip" half />
+                    <ShipField label="ZIP Code" name="zip" half />
                     <div className="flex-1">
                       <label className="block text-xs text-[#8B5E3C] mb-1">Country</label>
                       <select
-                        value={form.country}
-                        onChange={e => setForm(prev => ({ ...prev, country: e.target.value }))}
+                        value={shipping.country}
+                        onChange={e => setShipping(prev => ({ ...prev, country: e.target.value }))}
                         className="w-full px-4 py-2.5 bg-[#F5EBE0] border border-transparent rounded-xl text-sm text-[#2C1810] focus:outline-none focus:ring-2 focus:ring-[#8B5E3C]/30"
                       >
-                        <option>USA</option>
-                        <option>Canada</option>
-                        <option>UK</option>
-                        <option>Australia</option>
+                        {['USA', 'Canada', 'UK', 'Australia', 'Germany', 'France', 'Japan'].map(c => (
+                          <option key={c}>{c}</option>
+                        ))}
                       </select>
                     </div>
                   </div>
@@ -209,38 +271,234 @@ export function CheckoutPage() {
                   type="submit"
                   className="mt-6 w-full py-3.5 bg-[#2C1810] text-[#FAF3EB] rounded-full font-medium hover:bg-[#3D2318] transition-colors"
                 >
-                  Continue to Review
+                  Continue to Payment
                 </button>
               </form>
             )}
 
+            {/* STEP 2: Payment */}
+            {step === 'payment' && (
+              <form onSubmit={handlePaymentNext} className="bg-white rounded-2xl p-6 shadow-sm">
+                <h2 className="font-medium text-[#2C1810] mb-5">Payment Method</h2>
+
+                {/* Method selection */}
+                <div className="grid grid-cols-3 gap-3 mb-6">
+                  {[
+                    { id: 'card', icon: <CreditCard size={18} />, label: 'Card' },
+                    { id: 'paypal', icon: <DollarSign size={18} />, label: 'PayPal' },
+                    { id: 'applepay', icon: <Smartphone size={18} />, label: 'Apple Pay' },
+                  ].map(opt => (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => setPayment(prev => ({ ...prev, method: opt.id as PaymentForm['method'] }))}
+                      className={`flex flex-col items-center gap-2 py-4 rounded-xl border-2 transition-all ${
+                        payment.method === opt.id
+                          ? 'border-[#2C1810] bg-[#2C1810] text-[#FAF3EB]'
+                          : 'border-[rgba(44,24,16,0.15)] text-[#8B5E3C] hover:border-[#8B5E3C]'
+                      }`}
+                    >
+                      {opt.icon}
+                      <span className="text-sm">{opt.label}</span>
+                    </button>
+                  ))}
+                </div>
+
+                {/* Credit card form */}
+                {payment.method === 'card' && (
+                  <div className="space-y-4">
+                    <div
+                      className="rounded-2xl p-5 mb-2"
+                      style={{ background: 'linear-gradient(135deg, #2C1810 0%, #4a2c1e 60%, #3d5836 100%)' }}
+                    >
+                      <p className="text-[#C4A882] text-xs tracking-widest mb-6">ARTISAN BEAN HUB</p>
+                      <p className="text-[#FAF3EB] font-mono text-lg tracking-widest">
+                        {payment.cardNumber
+                          ? payment.cardNumber.replace(/(.{4})/g, '$1 ').trim()
+                          : '•••• •••• •••• ••••'}
+                      </p>
+                      <div className="flex justify-between mt-4">
+                        <div>
+                          <p className="text-[#C4A882] text-xs">Card Holder</p>
+                          <p className="text-[#FAF3EB] text-sm">{payment.cardName || 'YOUR NAME'}</p>
+                        </div>
+                        <div>
+                          <p className="text-[#C4A882] text-xs">Expires</p>
+                          <p className="text-[#FAF3EB] text-sm">{payment.cardExpiry || 'MM/YY'}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs text-[#8B5E3C] mb-1">Cardholder Name</label>
+                      <input
+                        type="text"
+                        value={payment.cardName}
+                        onChange={e => { setPayment(p => ({ ...p, cardName: e.target.value })); setPaymentErrors(p => ({ ...p, cardName: '' })); }}
+                        placeholder="Jane Doe"
+                        className={`w-full px-4 py-2.5 bg-[#F5EBE0] border rounded-xl text-sm text-[#2C1810] focus:outline-none focus:ring-2 focus:ring-[#8B5E3C]/30 ${paymentErrors.cardName ? 'border-red-400' : 'border-transparent'}`}
+                      />
+                      {paymentErrors.cardName && <p className="text-xs text-red-500 mt-1">{paymentErrors.cardName}</p>}
+                    </div>
+
+                    <div>
+                      <label className="block text-xs text-[#8B5E3C] mb-1">Card Number</label>
+                      <input
+                        type="text"
+                        value={payment.cardNumber}
+                        onChange={e => {
+                          const raw = e.target.value.replace(/\D/g, '').slice(0, 16);
+                          const formatted = raw.replace(/(.{4})/g, '$1 ').trim();
+                          setPayment(p => ({ ...p, cardNumber: formatted }));
+                          setPaymentErrors(p => ({ ...p, cardNumber: '' }));
+                        }}
+                        placeholder="1234 5678 9012 3456"
+                        maxLength={19}
+                        className={`w-full px-4 py-2.5 bg-[#F5EBE0] border rounded-xl text-sm text-[#2C1810] font-mono focus:outline-none focus:ring-2 focus:ring-[#8B5E3C]/30 ${paymentErrors.cardNumber ? 'border-red-400' : 'border-transparent'}`}
+                      />
+                      {paymentErrors.cardNumber && <p className="text-xs text-red-500 mt-1">{paymentErrors.cardNumber}</p>}
+                    </div>
+
+                    <div className="flex gap-4">
+                      <div className="flex-1">
+                        <label className="block text-xs text-[#8B5E3C] mb-1">Expiry Date</label>
+                        <input
+                          type="text"
+                          value={payment.cardExpiry}
+                          onChange={e => {
+                            let v = e.target.value.replace(/\D/g, '').slice(0, 4);
+                            if (v.length >= 3) v = `${v.slice(0, 2)}/${v.slice(2)}`;
+                            setPayment(p => ({ ...p, cardExpiry: v }));
+                            setPaymentErrors(p => ({ ...p, cardExpiry: '' }));
+                          }}
+                          placeholder="MM/YY"
+                          maxLength={5}
+                          className={`w-full px-4 py-2.5 bg-[#F5EBE0] border rounded-xl text-sm text-[#2C1810] font-mono focus:outline-none focus:ring-2 focus:ring-[#8B5E3C]/30 ${paymentErrors.cardExpiry ? 'border-red-400' : 'border-transparent'}`}
+                        />
+                        {paymentErrors.cardExpiry && <p className="text-xs text-red-500 mt-1">{paymentErrors.cardExpiry}</p>}
+                      </div>
+                      <div className="flex-1">
+                        <label className="block text-xs text-[#8B5E3C] mb-1">CVV</label>
+                        <input
+                          type="text"
+                          value={payment.cardCvv}
+                          onChange={e => {
+                            setPayment(p => ({ ...p, cardCvv: e.target.value.replace(/\D/g, '').slice(0, 4) }));
+                            setPaymentErrors(p => ({ ...p, cardCvv: '' }));
+                          }}
+                          placeholder="123"
+                          maxLength={4}
+                          className={`w-full px-4 py-2.5 bg-[#F5EBE0] border rounded-xl text-sm text-[#2C1810] font-mono focus:outline-none focus:ring-2 focus:ring-[#8B5E3C]/30 ${paymentErrors.cardCvv ? 'border-red-400' : 'border-transparent'}`}
+                        />
+                        {paymentErrors.cardCvv && <p className="text-xs text-red-500 mt-1">{paymentErrors.cardCvv}</p>}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 text-xs text-[#8B5E3C] bg-[#F0E4D4] rounded-xl p-3">
+                      <Lock size={12} className="text-[#4A6741] shrink-0" />
+                      Your payment info is encrypted and secure. This is a demo — no real charge is made.
+                    </div>
+                  </div>
+                )}
+
+                {/* PayPal mock */}
+                {payment.method === 'paypal' && (
+                  <div className="text-center py-8">
+                    <div className="w-16 h-16 rounded-full bg-[#F0E4D4] flex items-center justify-center mx-auto mb-4">
+                      <DollarSign size={28} className="text-[#2C6B8A]" />
+                    </div>
+                    <p className="text-[#2C1810] font-medium mb-2">Pay with PayPal</p>
+                    <p className="text-sm text-[#8B5E3C] mb-4">
+                      You'll be redirected to PayPal to complete your payment securely.
+                    </p>
+                    <div className="inline-flex items-center gap-2 text-xs text-[#8B5E3C] bg-[#F0E4D4] rounded-xl px-4 py-2">
+                      <Lock size={12} className="text-[#4A6741]" />
+                      Demo mode — no real redirect
+                    </div>
+                  </div>
+                )}
+
+                {/* Apple Pay mock */}
+                {payment.method === 'applepay' && (
+                  <div className="text-center py-8">
+                    <div className="w-16 h-16 rounded-full bg-[#2C1810] flex items-center justify-center mx-auto mb-4">
+                      <Smartphone size={28} className="text-white" />
+                    </div>
+                    <p className="text-[#2C1810] font-medium mb-2">Apple Pay / Google Pay</p>
+                    <p className="text-sm text-[#8B5E3C] mb-4">
+                      Use Face ID, Touch ID, or passcode to pay instantly on your device.
+                    </p>
+                    <button
+                      type="button"
+                      className="mx-auto block w-48 py-3 bg-[#2C1810] text-[#FAF3EB] rounded-full text-sm"
+                    >
+                      ⬛ Pay ${total.toFixed(2)}
+                    </button>
+                    <p className="text-xs text-[#8B5E3C] mt-3">Demo mode — click "Review Order" to continue</p>
+                  </div>
+                )}
+
+                <div className="flex gap-3 mt-6">
+                  <button
+                    type="button"
+                    onClick={() => setStep('shipping')}
+                    className="flex-1 py-3.5 border border-[rgba(44,24,16,0.12)] text-[#8B5E3C] rounded-full hover:bg-[#F0E4D4] transition-colors"
+                  >
+                    Back
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-[2] py-3.5 bg-[#2C1810] text-[#FAF3EB] rounded-full font-medium hover:bg-[#3D2318] transition-colors"
+                  >
+                    Review Order
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* STEP 3: Review */}
             {step === 'review' && (
               <div className="bg-white rounded-2xl p-6 shadow-sm">
                 <h2 className="font-medium text-[#2C1810] mb-5">Review Your Order</h2>
 
-                <div className="bg-[#F0E4D4] rounded-xl p-4 mb-5">
-                  <p className="text-xs text-[#8B5E3C] mb-1">Shipping to</p>
-                  <p className="text-sm text-[#2C1810]">
-                    {form.firstName} {form.lastName} · {form.email}
-                  </p>
-                  <p className="text-sm text-[#8B5E3C]">
-                    {form.street}, {form.city}, {form.state} {form.zip}, {form.country}
-                  </p>
-                  <button onClick={() => setStep('shipping')} className="text-xs text-[#8B5E3C] underline mt-1">
-                    Edit
-                  </button>
+                {/* Shipping summary */}
+                <div className="bg-[#F0E4D4] rounded-xl p-4 mb-4">
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="text-xs text-[#8B5E3C] uppercase tracking-wider">Shipping</p>
+                    <button onClick={() => setStep('shipping')} className="text-xs text-[#8B5E3C] underline">Edit</button>
+                  </div>
+                  <p className="text-sm text-[#2C1810]">{shipping.firstName} {shipping.lastName} · {shipping.email}</p>
+                  <p className="text-sm text-[#8B5E3C]">{shipping.street}, {shipping.city}, {shipping.state} {shipping.zip}, {shipping.country}</p>
                 </div>
 
+                {/* Payment summary */}
+                <div className="bg-[#F0E4D4] rounded-xl p-4 mb-5">
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="text-xs text-[#8B5E3C] uppercase tracking-wider">Payment</p>
+                    <button onClick={() => setStep('payment')} className="text-xs text-[#8B5E3C] underline">Edit</button>
+                  </div>
+                  <p className="text-sm text-[#2C1810] flex items-center gap-2">
+                    {payment.method === 'card' && <><CreditCard size={13} /> Credit Card {payment.cardNumber && `···· ${payment.cardNumber.replace(/\s/g, '').slice(-4)}`}</>}
+                    {payment.method === 'paypal' && <><DollarSign size={13} /> PayPal</>}
+                    {payment.method === 'applepay' && <><Smartphone size={13} /> Apple Pay</>}
+                  </p>
+                </div>
+
+                {/* Items */}
                 <div className="space-y-3 mb-5">
                   {items.map(item => (
-                    <div key={item.product.id} className="flex items-center gap-3 py-2 border-b border-[rgba(44,24,16,0.08)]">
+                    <div key={item.cartKey} className="flex items-center gap-3 py-2 border-b border-[rgba(44,24,16,0.08)]">
                       <img src={item.product.image} alt={item.product.name} className="w-12 h-12 rounded-lg object-cover" />
                       <div className="flex-1">
                         <p className="text-sm text-[#2C1810]">{item.product.name}</p>
-                        <p className="text-xs text-[#8B5E3C]">Qty: {item.quantity}</p>
+                        <p className="text-xs text-[#8B5E3C]">
+                          Qty: {item.quantity}
+                          {item.grindSize && ` · ${item.grindSize}`}
+                          {item.selectedWeight && ` · ${item.selectedWeight}`}
+                        </p>
                       </div>
                       <span className="text-sm text-[#2C1810] font-medium">
-                        ${(item.product.price * item.quantity).toFixed(2)}
+                        ${(item.unitPrice * item.quantity).toFixed(2)}
                       </span>
                     </div>
                   ))}
@@ -253,21 +511,25 @@ export function CheckoutPage() {
                   Place Order — ${total.toFixed(2)}
                 </button>
                 <p className="text-xs text-center text-[#8B5E3C] mt-3">
-                  This is a demo — no real payment or order is processed.
+                  This is a demo — no real payment or charge is processed.
                 </p>
               </div>
             )}
           </div>
 
-          {/* Order Summary */}
+          {/* ── Order summary sidebar ───────────────────────────────────────── */}
           <div>
             <div className="bg-white rounded-2xl p-5 shadow-sm sticky top-24">
               <h3 className="font-medium text-[#2C1810] mb-4">Order Summary</h3>
               <div className="space-y-2 mb-4">
                 {items.map(item => (
-                  <div key={item.product.id} className="flex justify-between text-sm text-[#8B5E3C]">
-                    <span className="truncate mr-2">{item.product.name} ×{item.quantity}</span>
-                    <span className="shrink-0">${(item.product.price * item.quantity).toFixed(2)}</span>
+                  <div key={item.cartKey} className="flex gap-2.5 text-sm">
+                    <img src={item.product.image} alt={item.product.name} className="w-10 h-10 rounded-lg object-cover shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[#2C1810] truncate text-xs">{item.product.name}</p>
+                      <p className="text-[#8B5E3C] text-xs">×{item.quantity}{item.grindSize && ` · ${item.grindSize}`}</p>
+                    </div>
+                    <span className="text-[#8B5E3C] text-xs shrink-0">${(item.unitPrice * item.quantity).toFixed(2)}</span>
                   </div>
                 ))}
               </div>
@@ -278,13 +540,18 @@ export function CheckoutPage() {
                 </div>
                 <div className="flex justify-between text-sm text-[#8B5E3C]">
                   <span>Shipping</span>
-                  <span>{shipping === 0 ? <span className="text-[#4A6741]">Free</span> : `$${shipping.toFixed(2)}`}</span>
+                  <span>{shippingCost === 0 ? <span className="text-[#4A6741]">Free</span> : `$${shippingCost.toFixed(2)}`}</span>
                 </div>
                 <div className="flex justify-between font-medium text-[#2C1810] pt-2 border-t border-[rgba(44,24,16,0.08)]">
                   <span>Total</span>
                   <span>${total.toFixed(2)}</span>
                 </div>
               </div>
+              {subtotal < 75 && (
+                <div className="mt-4 bg-[#F0E4D4] rounded-xl p-3 text-xs text-[#8B5E3C]">
+                  Add <span className="font-medium text-[#2C1810]">${(75 - subtotal).toFixed(2)}</span> more for free shipping
+                </div>
+              )}
             </div>
           </div>
         </div>

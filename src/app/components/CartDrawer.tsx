@@ -7,6 +7,14 @@ interface CartDrawerProps {
   onClose: () => void;
 }
 
+const grindLabels: Record<string, string> = {
+  'Whole Bean': 'Whole Bean',
+  'Espresso': 'Espresso Grind',
+  'Pour Over': 'Pour Over',
+  'Drip': 'Drip / Filter',
+  'French Press': 'French Press',
+};
+
 export function CartDrawer({ open, onClose }: CartDrawerProps) {
   const { items, updateQuantity, removeFromCart, subtotal, totalItems } = useCart();
   const shipping = subtotal >= 75 ? 0 : 5.99;
@@ -64,7 +72,8 @@ export function CartDrawer({ open, onClose }: CartDrawerProps) {
             </div>
           ) : (
             <div className="flex flex-col gap-4">
-              {subtotal < 75 && (
+              {/* Free shipping progress */}
+              {subtotal < 75 ? (
                 <div className="bg-[#F0E4D4] rounded-xl p-3 text-sm text-[#8B5E3C]">
                   Add <span className="font-medium text-[#2C1810]">${(75 - subtotal).toFixed(2)}</span> more for free shipping!
                   <div className="mt-2 h-1.5 rounded-full bg-[#E8D0B5]">
@@ -74,15 +83,15 @@ export function CartDrawer({ open, onClose }: CartDrawerProps) {
                     />
                   </div>
                 </div>
-              )}
-              {subtotal >= 75 && (
+              ) : (
                 <div className="bg-[#4A6741]/10 border border-[#4A6741]/30 rounded-xl p-3 text-sm text-[#4A6741]">
                   You've unlocked free shipping!
                 </div>
               )}
 
+              {/* Cart items */}
               {items.map(item => (
-                <div key={item.product.id} className="flex gap-3 bg-white rounded-xl p-3 shadow-sm">
+                <div key={item.cartKey} className="flex gap-3 bg-white rounded-xl p-3 shadow-sm">
                   <img
                     src={item.product.image}
                     alt={item.product.name}
@@ -90,21 +99,35 @@ export function CartDrawer({ open, onClose }: CartDrawerProps) {
                   />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-[#2C1810] font-medium leading-tight">{item.product.name}</p>
-                    <p className="text-xs text-[#8B5E3C] mt-0.5">
-                      {item.product.roastLevel ? `${item.product.roastLevel} Roast` : item.product.categoryName}
-                      {item.product.weight && ` · ${item.product.weight}`}
-                    </p>
+                    <div className="flex flex-wrap gap-1 mt-0.5">
+                      {item.grindSize && (
+                        <span className="text-xs text-[#8B5E3C] bg-[#F0E4D4] px-2 py-0.5 rounded-full">
+                          {grindLabels[item.grindSize] || item.grindSize}
+                        </span>
+                      )}
+                      {item.selectedWeight && (
+                        <span className="text-xs text-[#8B5E3C] bg-[#F0E4D4] px-2 py-0.5 rounded-full">
+                          {item.selectedWeight}
+                        </span>
+                      )}
+                      {!item.grindSize && (
+                        <span className="text-xs text-[#8B5E3C]">
+                          {item.product.roastLevel ? `${item.product.roastLevel} Roast` : item.product.categoryName}
+                          {item.product.weight && ` · ${item.product.weight}`}
+                        </span>
+                      )}
+                    </div>
                     <div className="flex items-center justify-between mt-2">
                       <div className="flex items-center gap-2 bg-[#F0E4D4] rounded-full px-1 py-0.5">
                         <button
-                          onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
+                          onClick={() => updateQuantity(item.cartKey, item.quantity - 1)}
                           className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-[#E8D0B5] transition-colors"
                         >
                           <Minus size={11} />
                         </button>
                         <span className="text-sm text-[#2C1810] w-5 text-center">{item.quantity}</span>
                         <button
-                          onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
+                          onClick={() => updateQuantity(item.cartKey, item.quantity + 1)}
                           disabled={item.quantity >= item.product.stock}
                           className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-[#E8D0B5] disabled:opacity-40 transition-colors"
                         >
@@ -113,10 +136,10 @@ export function CartDrawer({ open, onClose }: CartDrawerProps) {
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-medium text-[#2C1810]">
-                          ${(item.product.price * item.quantity).toFixed(2)}
+                          ${(item.unitPrice * item.quantity).toFixed(2)}
                         </span>
                         <button
-                          onClick={() => removeFromCart(item.product.id)}
+                          onClick={() => removeFromCart(item.cartKey)}
                           className="text-[#8B5E3C] hover:text-red-600 transition-colors"
                         >
                           <Trash2 size={13} />
