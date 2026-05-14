@@ -1,7 +1,7 @@
 /**
  * services/api.ts
  *
- * Centralised HTTP client for The Artisan Bean Hub frontend.
+ * Centralised HTTP client for The Fondo frontend.
  * All calls are routed through this module so the base URL and auth header
  * are managed in one place.
  *
@@ -17,9 +17,9 @@ const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 // ─── Auth Token Storage ───────────────────────────────────────────────────────
 
 export const tokenStore = {
-  get:    ()             => localStorage.getItem('artisan_token'),
-  set:    (t: string)    => localStorage.setItem('artisan_token', t),
-  remove: ()             => localStorage.removeItem('artisan_token'),
+  get:    ()             => localStorage.getItem('fondo_token'),
+  set:    (t: string)    => localStorage.setItem('fondo_token', t),
+  remove: ()             => localStorage.removeItem('fondo_token'),
 };
 
 // ─── Base Fetch Wrapper ───────────────────────────────────────────────────────
@@ -105,6 +105,7 @@ export interface ApiUser {
 export interface ApiCategory {
   id:           number;
   name:         string;
+  slug:         string;
   description:  string | null;
   productCount?: number;
 }
@@ -132,11 +133,13 @@ export interface ApiProduct {
 }
 
 export interface ApiOrderDetail {
-  id:         number;
-  product_id: number;
-  quantity:   number;
-  unit_price: string;
-  product?:   Pick<ApiProduct, 'id' | 'name' | 'image_url'>;
+  id:              number;
+  product_id:      number;
+  quantity:        number;
+  unit_price:      string;
+  grind_size:      string | null;
+  selected_weight: string | null;
+  product?:        Pick<ApiProduct, 'id' | 'name' | 'image_url'>;
 }
 
 export interface ApiOrder {
@@ -146,7 +149,8 @@ export interface ApiOrder {
   subtotal:         string;
   shipping_cost:    string;
   total:            string;
-  shipping_address: { street: string; city: string; state: string; zip: string; country: string };
+  shipping_address: { street: string; ward?: string; city: string; province?: string; state?: string; zip: string; country: string };
+  payment_method:   'card' | 'paypal' | 'applepay';
   notes:            string | null;
   created_at:       string;
   orderDetails?:    ApiOrderDetail[];
@@ -191,13 +195,13 @@ const categories = {
   getById: (id: number) =>
     request<{ success: boolean; data: ApiCategory }>(`/categories/${id}`),
 
-  create: (body: { name: string; description?: string }) =>
+  create: (body: { name: string; slug?: string; description?: string }) =>
     request<{ success: boolean; data: ApiCategory }>('/categories', {
       method: 'POST',
       body:   JSON.stringify(body),
     }),
 
-  update: (id: number, body: { name?: string; description?: string }) =>
+  update: (id: number, body: { name?: string; slug?: string; description?: string }) =>
     request<{ success: boolean; data: ApiCategory }>(`/categories/${id}`, {
       method: 'PUT',
       body:   JSON.stringify(body),
@@ -269,9 +273,15 @@ const products = {
 // ─── Orders API ───────────────────────────────────────────────────────────────
 
 export interface CreateOrderPayload {
-  items: { product_id: number; quantity: number }[];
-  shipping_address: { street: string; city: string; state: string; zip: string; country: string };
-  notes?: string;
+  items: {
+    product_id:      number;
+    quantity:        number;
+    grind_size?:     string;
+    selected_weight?: string;
+  }[];
+  shipping_address: { street: string; ward?: string; city: string; province?: string; state?: string; zip: string; country: string };
+  payment_method?:  'card' | 'paypal' | 'applepay';
+  notes?:           string;
 }
 
 export interface OrderFilters {
@@ -342,6 +352,58 @@ const users = {
     request<{ success: boolean; message: string }>(`/users/${id}`, { method: 'DELETE' }),
 };
 
+// ─── Brewing Guides API ───────────────────────────────────────────────────────
+
+export interface ApiBrewingGuide {
+  id:                number;
+  method:            string;
+  slug:              string;
+  tagline:           string | null;
+  description:       string | null;
+  difficulty:        'Beginner' | 'Intermediate' | 'Advanced';
+  brew_time:         string | null;
+  water_temp:        string | null;
+  grind_size:        string | null;
+  grind_detail:      string | null;
+  ratio:             string | null;
+  brew_yield:        string | null;
+  equipment:         string[] | null;
+  steps:             { title: string; detail: string }[] | null;
+  pro_tips:          string[] | null;
+  best_with:         string | null;
+  flavor_profile:    string | null;
+  recommended_roast: string | null;
+  image_url:         string | null;
+  featured:          boolean;
+  sort_order:        number;
+}
+
+const guides = {
+  getAll: () =>
+    request<{ success: boolean; data: ApiBrewingGuide[] }>('/guides'),
+
+  getFeatured: () =>
+    request<{ success: boolean; data: ApiBrewingGuide[] }>('/guides/featured'),
+
+  getBySlug: (slug: string) =>
+    request<{ success: boolean; data: ApiBrewingGuide }>(`/guides/${slug}`),
+
+  create: (body: Partial<ApiBrewingGuide>) =>
+    request<{ success: boolean; data: ApiBrewingGuide }>('/guides', {
+      method: 'POST',
+      body:   JSON.stringify(body),
+    }),
+
+  update: (slug: string, body: Partial<ApiBrewingGuide>) =>
+    request<{ success: boolean; data: ApiBrewingGuide }>(`/guides/${slug}`, {
+      method: 'PUT',
+      body:   JSON.stringify(body),
+    }),
+
+  delete: (slug: string) =>
+    request<{ success: boolean; message: string }>(`/guides/${slug}`, { method: 'DELETE' }),
+};
+
 // ─── Exported API Object ──────────────────────────────────────────────────────
 
-export const api = { auth, categories, products, orders, users };
+export const api = { auth, categories, products, orders, users, guides };

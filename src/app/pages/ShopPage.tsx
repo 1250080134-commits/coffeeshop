@@ -1,18 +1,36 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { SlidersHorizontal, X, ChevronDown } from 'lucide-react';
 import { useSearchParams } from 'react-router';
-import { products, categories } from '../data/mockData';
+import { api, ApiProduct, ApiCategory } from '../services/api';
 import { ProductCard } from '../components/ProductCard';
 
 const roastLevels = ['Light', 'Medium', 'Dark'] as const;
 const processingMethods = ['Washed', 'Natural', 'Anaerobic', 'Honey'] as const;
-const origins = [...new Set(products.filter(p => p.origin).map(p => p.origin!))].sort();
 
 export function ShopPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const [sortBy, setSortBy] = useState('featured');
   const [searchQuery, setSearchQuery] = useState('');
+  const [allProducts, setAllProducts] = useState<ApiProduct[]>([]);
+  const [categories, setCategories] = useState<ApiCategory[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    Promise.all([
+      api.products.getAll({ limit: 100 }),
+      api.categories.getAll(),
+    ]).then(([prodRes, catRes]) => {
+      setAllProducts(prodRes.data);
+      setCategories(catRes.data);
+    }).catch(console.error)
+      .finally(() => setIsLoading(false));
+  }, []);
+
+  const origins = useMemo(
+    () => [...new Set(allProducts.filter(p => p.origin).map(p => p.origin!))].sort(),
+    [allProducts],
+  );
 
   const activeCategory = searchParams.get('category') || 'all';
   const activeRoasts = searchParams.getAll('roast');
@@ -47,15 +65,15 @@ export function ShopPage() {
   };
 
   const filteredProducts = useMemo(() => {
-    let result = [...products];
+    let result = [...allProducts];
 
     if (activeCategory && activeCategory !== 'all') {
-      const cat = categories.find(c => c.slug === activeCategory);
-      if (cat) result = result.filter(p => p.categoryId === cat.id);
+      const cat = categories.find(c => c.slug === activeCategory || c.name.toLowerCase() === activeCategory);
+      if (cat) result = result.filter(p => p.category_id === cat.id);
     }
 
     if (activeRoasts.length > 0) {
-      result = result.filter(p => p.roastLevel && activeRoasts.includes(p.roastLevel));
+      result = result.filter(p => p.roast_level && activeRoasts.includes(p.roast_level as typeof activeRoasts[number]));
     }
 
     if (activeOrigins.length > 0) {
@@ -63,7 +81,7 @@ export function ShopPage() {
     }
 
     if (activeMethods.length > 0) {
-      result = result.filter(p => p.processingMethod && activeMethods.includes(p.processingMethod));
+      result = result.filter(p => p.processing_method && activeMethods.includes(p.processing_method as typeof activeMethods[number]));
     }
 
     if (searchQuery.trim()) {
@@ -71,19 +89,19 @@ export function ShopPage() {
       result = result.filter(p =>
         p.name.toLowerCase().includes(q) ||
         p.origin?.toLowerCase().includes(q) ||
-        p.shortDescription.toLowerCase().includes(q) ||
-        p.flavorNotes?.some(n => n.toLowerCase().includes(q))
+        p.short_description?.toLowerCase().includes(q) ||
+        p.flavor_notes?.some(n => n.toLowerCase().includes(q))
       );
     }
 
     switch (sortBy) {
-      case 'price-asc': return result.sort((a, b) => a.price - b.price);
-      case 'price-desc': return result.sort((a, b) => b.price - a.price);
-      case 'rating': return result.sort((a, b) => b.rating - a.rating);
+      case 'price-asc': return result.sort((a, b) => parseFloat(a.price) - parseFloat(b.price));
+      case 'price-desc': return result.sort((a, b) => parseFloat(b.price) - parseFloat(a.price));
+      case 'rating': return result.sort((a, b) => parseFloat(b.rating ?? '0') - parseFloat(a.rating ?? '0'));
       case 'name': return result.sort((a, b) => a.name.localeCompare(b.name));
       default: return result.sort((a, b) => (b.featured ? 1 : 0) - (a.featured ? 1 : 0));
     }
-  }, [activeCategory, activeRoasts, activeOrigins, activeMethods, searchQuery, sortBy]);
+  }, [allProducts, activeCategory, activeRoasts, activeOrigins, activeMethods, searchQuery, sortBy, categories]);
 
   const hasActiveFilters = activeRoasts.length > 0 || activeOrigins.length > 0 || activeMethods.length > 0 || searchQuery;
 
@@ -251,9 +269,15 @@ export function ShopPage() {
           {/* Product Grid */}
           <main className="flex-1">
             <p className="text-sm text-[#8B5E3C] mb-4">
-              {filteredProducts.length} product{filteredProducts.length !== 1 ? 's' : ''} found
+              {isLoading ? 'Loading products…' : `${filteredProducts.length} product${filteredProducts.length !== 1 ? 's' : ''} found`}
             </p>
-            {filteredProducts.length === 0 ? (
+            {isLoading ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
+                {[...Array(6)].map((_, i) => (
+                  <div key={i} className="rounded-2xl bg-white animate-pulse h-80" />
+                ))}
+              </div>
+            ) : filteredProducts.length === 0 ? (
               <div className="text-center py-20">
                 <p className="text-[#8B5E3C] mb-4">No products match your filters.</p>
                 <button onClick={clearAllFilters} className="text-sm text-[#2C1810] underline">

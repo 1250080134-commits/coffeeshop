@@ -1,40 +1,43 @@
 import { ShoppingCart, Star, Leaf } from 'lucide-react';
-import { Product } from '../data/mockData';
+import { ApiProduct } from '../services/api';
 import { useCart } from '../context/CartContext';
 import { Link } from 'react-router';
 import { toast } from 'sonner';
 
 interface ProductCardProps {
-  product: Product;
+  product: ApiProduct;
 }
 
 const roastColors: Record<string, string> = {
-  Light: 'bg-[#F5DEB3] text-[#8B5E3C]',
+  Light:  'bg-[#F5DEB3] text-[#8B5E3C]',
   Medium: 'bg-[#C4A882] text-[#2C1810]',
-  Dark: 'bg-[#2C1810] text-[#FAF3EB]',
+  Dark:   'bg-[#2C1810] text-[#FAF3EB]',
 };
 
 const badgeColors: Record<string, string> = {
   Bestseller: 'bg-[#4A6741] text-white',
-  Sale: 'bg-red-600 text-white',
-  Limited: 'bg-[#8B5E3C] text-white',
-  New: 'bg-[#2C6B8A] text-white',
-  Rare: 'bg-purple-700 text-white',
-  Organic: 'bg-[#4A6741] text-white',
+  Sale:       'bg-red-600 text-white',
+  Limited:    'bg-[#8B5E3C] text-white',
+  New:        'bg-[#2C6B8A] text-white',
+  Rare:       'bg-purple-700 text-white',
+  Organic:    'bg-[#4A6741] text-white',
   'Top Pick': 'bg-[#C4A882] text-[#2C1810]',
-  Premium: 'bg-[#2C1810] text-[#FAF3EB]',
+  Premium:    'bg-[#2C1810] text-[#FAF3EB]',
 };
 
 export function ProductCard({ product }: ProductCardProps) {
   const { addToCart } = useCart();
 
+  const price         = parseFloat(product.price);
+  const originalPrice = product.original_price ? parseFloat(product.original_price) : null;
+  const rating        = product.rating ? parseFloat(product.rating) : null;
+
   const handleAdd = (e: React.MouseEvent) => {
     e.preventDefault();
     if (product.stock === 0) return;
-    // Quick-add from card: no grind/weight selection (defaults)
-    addToCart(product, 1, { unitPrice: product.price });
+    addToCart(product, 1, { unitPrice: price });
     toast.success(`${product.name} added to cart!`, {
-      description: `$${product.price.toFixed(2)}`,
+      description: `$${price.toFixed(2)}`,
     });
   };
 
@@ -44,20 +47,19 @@ export function ProductCard({ product }: ProductCardProps) {
         {/* Image */}
         <div className="relative overflow-hidden aspect-[4/3]">
           <img
-            src={product.image}
+            src={product.image_url ?? 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=600&auto=format&fit=crop&q=80'}
             alt={product.name}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
           />
-          {/* Overlays */}
           <div className="absolute top-3 left-3 flex flex-col gap-1.5">
             {product.badge && (
               <span className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${badgeColors[product.badge] || 'bg-gray-800 text-white'}`}>
                 {product.badge}
               </span>
             )}
-            {product.roastLevel && (
-              <span className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${roastColors[product.roastLevel]}`}>
-                {product.roastLevel} Roast
+            {product.roast_level && (
+              <span className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${roastColors[product.roast_level]}`}>
+                {product.roast_level} Roast
               </span>
             )}
           </div>
@@ -79,21 +81,24 @@ export function ProductCard({ product }: ProductCardProps) {
         <div className="p-4">
           <div className="flex items-start justify-between gap-2 mb-1">
             <h3 className="text-[#2C1810] font-medium leading-tight">{product.name}</h3>
-            {product.processingMethod === 'Anaerobic' || product.badge === 'Organic' ? (
+            {(product.processing_method === 'Anaerobic' || product.badge === 'Organic') && (
               <Leaf size={14} className="text-[#4A6741] mt-1 shrink-0" />
-            ) : null}
+            )}
           </div>
 
           {product.origin && (
-            <p className="text-xs text-[#8B5E3C] mb-2">{product.origin} · {product.processingMethod}</p>
+            <p className="text-xs text-[#8B5E3C] mb-2">
+              {product.origin}{product.processing_method ? ` · ${product.processing_method}` : ''}
+            </p>
           )}
 
-          <p className="text-xs text-[#8B5E3C] line-clamp-2 mb-3">{product.shortDescription}</p>
+          <p className="text-xs text-[#8B5E3C] line-clamp-2 mb-3">
+            {product.short_description ?? product.description ?? ''}
+          </p>
 
-          {/* Flavor notes */}
-          {product.flavorNotes && (
+          {product.flavor_notes && product.flavor_notes.length > 0 && (
             <div className="flex flex-wrap gap-1 mb-3">
-              {product.flavorNotes.slice(0, 3).map(note => (
+              {product.flavor_notes.slice(0, 3).map(note => (
                 <span key={note} className="text-xs bg-[#F0E4D4] text-[#8B5E3C] px-2 py-0.5 rounded-full">
                   {note}
                 </span>
@@ -101,19 +106,17 @@ export function ProductCard({ product }: ProductCardProps) {
             </div>
           )}
 
-          {/* Rating */}
           <div className="flex items-center gap-1 mb-3">
             <Star size={12} className="fill-amber-400 text-amber-400" />
-            <span className="text-xs text-[#2C1810] font-medium">{product.rating}</span>
-            <span className="text-xs text-[#8B5E3C]">({product.reviewCount})</span>
+            <span className="text-xs text-[#2C1810] font-medium">{rating?.toFixed(1) ?? '—'}</span>
+            <span className="text-xs text-[#8B5E3C]">({product.review_count})</span>
           </div>
 
-          {/* Price + CTA */}
           <div className="flex items-center justify-between">
             <div>
-              <span className="text-[#2C1810] font-medium">${product.price.toFixed(2)}</span>
-              {product.originalPrice && (
-                <span className="text-xs text-[#8B5E3C] line-through ml-2">${product.originalPrice.toFixed(2)}</span>
+              <span className="text-[#2C1810] font-medium">${price.toFixed(2)}</span>
+              {originalPrice && (
+                <span className="text-xs text-[#8B5E3C] line-through ml-2">${originalPrice.toFixed(2)}</span>
               )}
               {product.weight && (
                 <span className="text-xs text-[#8B5E3C] ml-1">/ {product.weight}</span>

@@ -66,8 +66,8 @@ export function AuthModal({ open, onClose, defaultTab = 'login' }: AuthModalProp
   };
 
   const demoUsers = [
-    { email: 'sarah.m@email.com', label: 'Customer (Sarah)' },
-    { email: 'admin@artisanbean.com', label: 'Admin (Alex)' },
+    { email: 'sarah.m@email.com', label: 'Customer (Sarah)', password: 'Customer@123' },
+    { email: 'admin@artisanbean.com', label: 'Admin (Admin)', password: 'Admin@12345' },
   ];
 
   return (
@@ -93,7 +93,7 @@ export function AuthModal({ open, onClose, defaultTab = 'login' }: AuthModalProp
               <div className="w-10 h-10 rounded-full bg-[#C4A882] flex items-center justify-center">
                 <Coffee size={18} className="text-[#2C1810]" />
               </div>
-              <span className="font-serif text-lg text-[#FAF3EB]">Artisan Bean Hub</span>
+              <span className="font-serif text-lg text-[#FAF3EB]">Fondo</span>
             </div>
 
             {/* Tabs */}
@@ -130,13 +130,13 @@ export function AuthModal({ open, onClose, defaultTab = 'login' }: AuthModalProp
 
                   {/* Demo hint */}
                   <div className="bg-[#F0E4D4] rounded-xl p-3 mb-5">
-                    <p className="text-xs text-[#8B5E3C] mb-2">Demo accounts (any password works):</p>
+                    <p className="text-xs text-[#8B5E3C] mb-2">Demo accounts (click to fill):</p>
                     <div className="flex flex-wrap gap-2">
                       {demoUsers.map(d => (
                         <button
                           key={d.email}
                           type="button"
-                          onClick={() => { setLoginEmail(d.email); setLoginPassword('password123'); }}
+                          onClick={() => { setLoginEmail(d.email); setLoginPassword(d.password); }}
                           className="text-xs bg-white text-[#2C1810] px-3 py-1 rounded-full border border-[rgba(44,24,16,0.12)] hover:bg-[#E8D0B5] transition-colors"
                         >
                           {d.label}
@@ -208,12 +208,12 @@ export function AuthModal({ open, onClose, defaultTab = 'login' }: AuthModalProp
                 </p>
 
                 <div>
-                  <label className="block text-xs text-[#8B5E3C] mb-1.5">Full Name</label>
+                  <label className="block text-xs text-[#8B5E3C] mb-1.5">Username</label>
                   <input
                     type="text"
                     value={regName}
                     onChange={e => { setRegName(e.target.value); setRegErrors(p => ({ ...p, name: '' })); }}
-                    placeholder="Jane Doe"
+                    placeholder="your_username"
                     className={`w-full px-4 py-2.5 bg-[#F5EBE0] border rounded-xl text-sm text-[#2C1810] placeholder-[#8B5E3C]/50 focus:outline-none focus:ring-2 focus:ring-[#8B5E3C]/30 ${regErrors.name ? 'border-red-400' : 'border-transparent'}`}
                   />
                   {regErrors.name && <p className="text-xs text-red-500 mt-1">{regErrors.name}</p>}

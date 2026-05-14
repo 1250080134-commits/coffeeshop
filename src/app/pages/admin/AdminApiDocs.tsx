@@ -1,6 +1,6 @@
 /**
  * AdminApiDocs.tsx
- * Interactive API reference for The Artisan Bean Hub backend.
+ * Interactive API reference for The Fondo backend.
  * Visible at /admin/api-docs
  */
 
@@ -331,7 +331,7 @@ export default function AdminApiDocs() {
           <div>
             <h1 className="text-2xl text-[#1a1a1a] mb-1">API Reference</h1>
             <p className="text-sm text-[#6b7280]">
-              The Artisan Bean Hub — Node.js / Express / Sequelize Backend
+              The Fondo — Node.js / Express / Sequelize Backend
             </p>
           </div>
           <div className="text-right">

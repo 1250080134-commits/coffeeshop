@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Package, ShoppingBag, ChevronDown, ChevronUp, ArrowLeft, Clock, Truck, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 import { Link, useOutletContext } from 'react-router';
 import { useAuth } from '../context/AuthContext';
-import { orders } from '../data/mockData';
+import { api, ApiOrder } from '../services/api';
 
 const statusConfig: Record<string, { icon: React.ReactNode; color: string; bg: string }> = {
   Pending:    { icon: <Clock size={13} />,        color: 'text-amber-700',   bg: 'bg-amber-100' },
@@ -14,8 +14,19 @@ const statusConfig: Record<string, { icon: React.ReactNode; color: string; bg: s
 
 export function OrderHistoryPage() {
   const { user, isAuthenticated } = useAuth();
-  const [expandedOrder, setExpandedOrder] = useState<string | null>(null);
+  const [expandedOrder, setExpandedOrder] = useState<number | null>(null);
+  const [orders, setOrders] = useState<ApiOrder[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const { onAuthOpen } = useOutletContext<{ onCartOpen: () => void; onAuthOpen: () => void }>();
+
+  useEffect(() => {
+    if (!isAuthenticated) { setIsLoading(false); return; }
+    setIsLoading(true);
+    api.orders.getMyOrders()
+      .then(res => setOrders(res.data))
+      .catch(() => setOrders([]))
+      .finally(() => setIsLoading(false));
+  }, [isAuthenticated]);
 
   if (!isAuthenticated || !user) {
     return (
@@ -44,11 +55,6 @@ export function OrderHistoryPage() {
     );
   }
 
-  // Filter orders for logged-in user (or show all for admins)
-  const userOrders = user.role === 'Admin'
-    ? [...orders].sort((a, b) => b.date.localeCompare(a.date))
-    : orders.filter(o => o.customerEmail === user.email).sort((a, b) => b.date.localeCompare(a.date));
-
   return (
     <div className="min-h-screen bg-[#FAF3EB]">
       {/* Header */}
@@ -58,153 +64,103 @@ export function OrderHistoryPage() {
             <ArrowLeft size={14} /> Back to Home
           </Link>
           <h1 className="font-serif text-4xl mb-1">My Orders</h1>
-          <p className="text-[#C4A882]">Hello, {user.name.split(' ')[0]} — here's your order history.</p>
+          <p className="text-[#C4A882]">Hello, {user.username} — here's your order history.</p>
         </div>
       </div>
 
       <div className="max-w-4xl mx-auto px-4 py-8">
-        {userOrders.length === 0 ? (
+        {isLoading ? (
+          <div className="text-center py-20 text-[#8B5E3C]">Loading your orders…</div>
+        ) : orders.length === 0 ? (
           <div className="text-center py-20">
             <ShoppingBag size={48} className="text-[#C4A882] mx-auto mb-4" />
             <h2 className="font-serif text-2xl text-[#2C1810] mb-2">No orders yet</h2>
             <p className="text-[#8B5E3C] mb-6">
-              Your order history will appear here once you've made your first purchase.
+              When you place an order, it will appear here.
             </p>
-            <Link
-              to="/shop"
-              className="inline-flex items-center gap-2 px-6 py-3 bg-[#2C1810] text-[#FAF3EB] rounded-full text-sm font-medium hover:bg-[#3D2318] transition-colors"
-            >
+            <Link to="/shop" className="inline-block px-6 py-3 bg-[#2C1810] text-[#FAF3EB] rounded-full text-sm font-medium hover:bg-[#3D2318] transition-colors">
               Start Shopping
             </Link>
           </div>
         ) : (
           <div className="space-y-4">
-            <p className="text-sm text-[#8B5E3C]">
-              {userOrders.length} order{userOrders.length !== 1 ? 's' : ''} total
-            </p>
-
-            {userOrders.map(order => {
-              const status = statusConfig[order.status] || statusConfig.Pending;
-              const isExpanded = expandedOrder === order.id;
-
+            {orders.map(order => {
+              const config = statusConfig[order.status] ?? statusConfig['Pending'];
+              const isOpen = expandedOrder === order.id;
               return (
-                <div key={order.id} className="bg-white rounded-2xl shadow-sm border border-[rgba(44,24,16,0.08)] overflow-hidden">
-                  {/* Order Header */}
+                <div key={order.id} className="bg-white rounded-2xl shadow-sm overflow-hidden">
+                  {/* Order header */}
                   <button
-                    onClick={() => setExpandedOrder(isExpanded ? null : order.id)}
-                    className="w-full px-5 py-4 flex items-center gap-4 hover:bg-[#FAF3EB] transition-colors text-left"
+                    className="w-full px-6 py-5 flex items-center justify-between hover:bg-[#FAF3EB]/50 transition-colors"
+                    onClick={() => setExpandedOrder(isOpen ? null : order.id)}
                   >
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-3 flex-wrap">
-                        <span className="font-mono text-sm text-[#2C1810]">{order.id}</span>
-                        <span className={`inline-flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-full font-medium ${status.bg} ${status.color}`}>
-                          {status.icon}
-                          {order.status}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-3 mt-1 text-xs text-[#8B5E3C] flex-wrap">
-                        <span>{new Date(order.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
-                        <span>·</span>
-                        <span>{order.items.length} item{order.items.length !== 1 ? 's' : ''}</span>
-                        <span>·</span>
-                        <span className="font-medium text-[#2C1810]">${order.total.toFixed(2)}</span>
+                    <div className="flex items-center gap-4 text-left">
+                      <div>
+                        <p className="font-semibold text-[#2C1810] text-sm">Order #{order.id}</p>
+                        <p className="text-xs text-[#8B5E3C] mt-0.5">
+                          {new Date(order.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+                        </p>
                       </div>
                     </div>
-
-                    {/* Product thumbnails */}
-                    <div className="hidden sm:flex items-center -space-x-2">
-                      {order.items.slice(0, 3).map((item, i) => (
-                        <img
-                          key={i}
-                          src={item.image}
-                          alt={item.productName}
-                          className="w-8 h-8 rounded-lg object-cover border-2 border-white"
-                        />
-                      ))}
-                      {order.items.length > 3 && (
-                        <div className="w-8 h-8 rounded-lg bg-[#F0E4D4] border-2 border-white flex items-center justify-center">
-                          <span className="text-xs text-[#8B5E3C]">+{order.items.length - 3}</span>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="text-[#8B5E3C] shrink-0 ml-2">
-                      {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                    <div className="flex items-center gap-4">
+                      <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium ${config.color} ${config.bg}`}>
+                        {config.icon}
+                        {order.status}
+                      </span>
+                      <span className="font-semibold text-[#2C1810]">${parseFloat(order.total).toFixed(2)}</span>
+                      {isOpen ? <ChevronUp size={16} className="text-[#8B5E3C]" /> : <ChevronDown size={16} className="text-[#8B5E3C]" />}
                     </div>
                   </button>
 
-                  {/* Expanded order details */}
-                  {isExpanded && (
-                    <div className="border-t border-[rgba(44,24,16,0.08)] px-5 py-4">
-                      {/* Order items */}
-                      <div className="space-y-3 mb-5">
-                        {order.items.map((item, i) => (
-                          <div key={i} className="flex items-center gap-3">
-                            <img
-                              src={item.image}
-                              alt={item.productName}
-                              className="w-12 h-12 rounded-xl object-cover shrink-0"
-                            />
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm text-[#2C1810] truncate">{item.productName}</p>
-                              <p className="text-xs text-[#8B5E3C]">Qty: {item.quantity} × ${item.price.toFixed(2)}</p>
+                  {/* Expanded details */}
+                  {isOpen && (
+                    <div className="border-t border-[#F0E4D4] px-6 py-5 space-y-4">
+                      {order.orderDetails && order.orderDetails.length > 0 ? (
+                        <div className="space-y-3">
+                          {order.orderDetails.map(detail => (
+                            <div key={detail.id} className="flex items-center gap-4">
+                              {detail.product?.image_url ? (
+                                <img src={detail.product.image_url} alt={detail.product.name} className="w-12 h-12 rounded-xl object-cover bg-[#F0E4D4]" />
+                              ) : (
+                                <div className="w-12 h-12 rounded-xl bg-[#F0E4D4] flex items-center justify-center">
+                                  <Package size={16} className="text-[#C4A882]" />
+                                </div>
+                              )}
+                              <div className="flex-1">
+                                <p className="text-sm font-medium text-[#2C1810]">{detail.product?.name ?? `Product #${detail.product_id}`}</p>
+                                <p className="text-xs text-[#8B5E3C]">Qty: {detail.quantity} × ${parseFloat(detail.unit_price).toFixed(2)}</p>
+                              </div>
+                              <p className="text-sm font-semibold text-[#2C1810]">
+                                ${(detail.quantity * parseFloat(detail.unit_price)).toFixed(2)}
+                              </p>
                             </div>
-                            <span className="text-sm font-medium text-[#2C1810] shrink-0">
-                              ${(item.quantity * item.price).toFixed(2)}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-
-                      {/* Totals + address */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className="bg-[#F0E4D4] rounded-xl p-4">
-                          <p className="text-xs text-[#8B5E3C] mb-2 uppercase tracking-wider">Shipping Address</p>
-                          <p className="text-sm text-[#2C1810]">
-                            {order.customerName}<br />
-                            {order.shippingAddress.street}<br />
-                            {order.shippingAddress.city}, {order.shippingAddress.state} {order.shippingAddress.zip}<br />
-                            {order.shippingAddress.country}
-                          </p>
+                          ))}
                         </div>
+                      ) : (
+                        <p className="text-sm text-[#8B5E3C]">No item details available.</p>
+                      )}
 
-                        <div className="space-y-2">
-                          <div className="flex justify-between text-sm text-[#8B5E3C]">
-                            <span>Subtotal</span>
-                            <span>${order.subtotal.toFixed(2)}</span>
-                          </div>
-                          <div className="flex justify-between text-sm text-[#8B5E3C]">
-                            <span>Shipping</span>
-                            <span>
-                              {order.shipping === 0
-                                ? <span className="text-[#4A6741]">Free</span>
-                                : `$${order.shipping.toFixed(2)}`
-                              }
-                            </span>
-                          </div>
-                          <div className="flex justify-between text-sm font-medium text-[#2C1810] pt-2 border-t border-[rgba(44,24,16,0.08)]">
-                            <span>Total</span>
-                            <span>${order.total.toFixed(2)}</span>
-                          </div>
-
-                          {['Pending', 'Processing'].includes(order.status) && (
-                            <div className="pt-2">
-                              <span className="inline-flex items-center gap-1.5 text-xs text-[#4A6741] bg-[#4A6741]/10 px-3 py-1.5 rounded-full">
-                                <Truck size={12} />
-                                Order is being prepared
-                              </span>
-                            </div>
-                          )}
-                          {order.status === 'Shipped' && (
-                            <div className="pt-2">
-                              <span className="inline-flex items-center gap-1.5 text-xs text-purple-700 bg-purple-100 px-3 py-1.5 rounded-full">
-                                <Truck size={12} />
-                                On its way to you!
-                              </span>
-                            </div>
-                          )}
+                      <div className="pt-3 border-t border-[#F0E4D4] text-sm space-y-1">
+                        <div className="flex justify-between text-[#8B5E3C]">
+                          <span>Subtotal</span>
+                          <span>${parseFloat(order.subtotal).toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between text-[#8B5E3C]">
+                          <span>Shipping</span>
+                          <span>{parseFloat(order.shipping_cost) === 0 ? 'Free' : `$${parseFloat(order.shipping_cost).toFixed(2)}`}</span>
+                        </div>
+                        <div className="flex justify-between font-semibold text-[#2C1810] pt-1">
+                          <span>Total</span>
+                          <span>${parseFloat(order.total).toFixed(2)}</span>
                         </div>
                       </div>
+
+                      {order.shipping_address && (
+                        <div className="pt-2 text-xs text-[#8B5E3C]">
+                          <p className="font-medium text-[#2C1810] mb-0.5">Shipped to</p>
+                          <p>{order.shipping_address.street}, {order.shipping_address.city}, {order.shipping_address.state} {order.shipping_address.zip}</p>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

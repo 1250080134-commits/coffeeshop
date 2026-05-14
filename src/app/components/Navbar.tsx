@@ -48,7 +48,7 @@ export function Navbar({ onCartOpen, onAuthOpen, isAdmin = false }: NavbarProps)
               <Coffee size={16} className="text-[#2C1810]" />
             </div>
             <span className="font-serif text-lg tracking-wide hidden sm:block">
-              Artisan Bean Hub
+              Fondo
             </span>
           </Link>
 
@@ -100,10 +100,10 @@ export function Navbar({ onCartOpen, onAuthOpen, isAdmin = false }: NavbarProps)
                     >
                       <div className="w-5 h-5 rounded-full bg-[#C4A882] flex items-center justify-center">
                         <span className="text-[10px] text-[#2C1810] font-medium">
-                          {user.name.charAt(0).toUpperCase()}
+                          {user.username.charAt(0).toUpperCase()}
                         </span>
                       </div>
-                      <span className="max-w-[80px] truncate">{user.name.split(' ')[0]}</span>
+                      <span className="max-w-[80px] truncate">{user.username}</span>
                       <ChevronDown size={11} />
                     </button>
 
@@ -112,7 +112,7 @@ export function Navbar({ onCartOpen, onAuthOpen, isAdmin = false }: NavbarProps)
                         <div className="fixed inset-0 z-40" onClick={() => setUserMenuOpen(false)} />
                         <div className="absolute right-0 top-full mt-2 w-44 bg-white rounded-xl shadow-lg border border-[rgba(44,24,16,0.08)] z-50 overflow-hidden">
                           <div className="px-4 py-3 border-b border-[rgba(44,24,16,0.06)]">
-                            <p className="text-xs font-medium text-[#2C1810] truncate">{user.name}</p>
+                            <p className="text-xs font-medium text-[#2C1810] truncate">{user.username}</p>
                             <p className="text-xs text-[#8B5E3C] truncate">{user.email}</p>
                           </div>
                           <Link
@@ -201,7 +201,7 @@ export function Navbar({ onCartOpen, onAuthOpen, isAdmin = false }: NavbarProps)
                       onClick={() => { handleLogout(); setMobileOpen(false); }}
                       className="text-left text-red-400 hover:text-red-300 text-sm py-1"
                     >
-                      Sign Out ({user.name.split(' ')[0]})
+                      Sign Out ({user.username})
                     </button>
                   </>
                 ) : (

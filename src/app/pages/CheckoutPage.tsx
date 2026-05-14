@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
-import { products } from '../data/mockData';
+import { api, ApiError } from '../services/api';
 
 type Step = 'shipping' | 'payment' | 'review' | 'confirmation';
 
@@ -13,8 +13,9 @@ interface ShippingForm {
   lastName: string;
   email: string;
   street: string;
+  ward: string;
   city: string;
-  state: string;
+  province: string;
   zip: string;
   country: string;
 }
@@ -29,7 +30,7 @@ interface PaymentForm {
 
 const initialShipping: ShippingForm = {
   firstName: '', lastName: '', email: '',
-  street: '', city: '', state: '', zip: '', country: 'USA',
+  street: '', ward: '', city: '', province: '', zip: '', country: 'Việt Nam',
 };
 
 const initialPayment: PaymentForm = {
@@ -51,23 +52,21 @@ export function CheckoutPage() {
   const [step, setStep] = useState<Step>('shipping');
   const [shipping, setShipping] = useState<ShippingForm>(() => ({
     ...initialShipping,
-    firstName: user?.name.split(' ')[0] || '',
-    lastName: user?.name.split(' ').slice(1).join(' ') || '',
+    firstName: user?.username || '',
+    lastName: '',
     email: user?.email || '',
   }));
   const [payment, setPayment] = useState<PaymentForm>(initialPayment);
   const [shippingErrors, setShippingErrors] = useState<Partial<ShippingForm>>({});
   const [paymentErrors, setPaymentErrors] = useState<Partial<PaymentForm>>({});
-  const [orderId] = useState(`ORD-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 900) + 100)}`);
+  const [placedOrderId, setPlacedOrderId] = useState<number | null>(null);
+  const [isPlacingOrder, setIsPlacingOrder] = useState(false);
 
   const shippingCost = subtotal >= 75 ? 0 : 5.99;
   const total = subtotal + shippingCost;
 
-  // Real-time stock validation
-  const stockIssues = items.filter(item => {
-    const prod = products.find(p => p.id === item.product.id);
-    return prod && prod.stock < item.quantity;
-  });
+  // Real-time stock validation — use live cart data
+  const stockIssues = items.filter(item => item.quantity > item.product.stock);
 
   // ── Validation ─────────────────────────────────────────────────────────────
   const validateShipping = (): boolean => {
@@ -76,8 +75,9 @@ export function CheckoutPage() {
     if (!shipping.lastName.trim()) errs.lastName = 'Required';
     if (!shipping.email.includes('@')) errs.email = 'Valid email required';
     if (!shipping.street.trim()) errs.street = 'Required';
+    if (!shipping.ward.trim()) errs.ward = 'Required';
     if (!shipping.city.trim()) errs.city = 'Required';
-    if (!shipping.state.trim()) errs.state = 'Required';
+    if (!shipping.province.trim()) errs.province = 'Required';
     if (!shipping.zip.trim()) errs.zip = 'Required';
     setShippingErrors(errs);
     return Object.keys(errs).length === 0;
@@ -109,10 +109,42 @@ export function CheckoutPage() {
     if (validatePayment()) setStep('review');
   };
 
-  const handlePlaceOrder = () => {
-    clearCart();
-    setStep('confirmation');
-    toast.success('Order placed successfully!');
+  const handlePlaceOrder = async () => {
+    setIsPlacingOrder(true);
+    try {
+      const response = await api.orders.create({
+        items: items.map(i => ({
+          product_id:      i.product.id,
+          quantity:        i.quantity,
+          grind_size:      i.grindSize,
+          selected_weight: i.selectedWeight,
+        })),
+        shipping_address: {
+          street:   shipping.street,
+          ward:     shipping.ward,
+          city:     shipping.city,
+          province: shipping.province,
+          zip:      shipping.zip,
+          country:  shipping.country,
+        },
+        payment_method: (payment.method as 'card' | 'paypal' | 'applepay') || 'card',
+        notes: undefined,
+      });
+      setPlacedOrderId(response.data.id);
+      clearCart();
+      setStep('confirmation');
+      toast.success('Order placed successfully!');
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 409) {
+        toast.error('Some items ran out of stock. Please review your cart.');
+      } else if (err instanceof ApiError) {
+        toast.error(err.message);
+      } else {
+        toast.error('Order could not be placed. Please try again.');
+      }
+    } finally {
+      setIsPlacingOrder(false);
+    }
   };
 
   // ── Shared field component ─────────────────────────────────────────────────
@@ -161,14 +193,14 @@ export function CheckoutPage() {
           <h1 className="font-serif text-3xl text-[#2C1810] mb-2">Order Confirmed!</h1>
           <p className="text-[#8B5E3C] mb-2">Thank you, <strong>{shipping.firstName}</strong>!</p>
           <p className="text-sm text-[#8B5E3C] mb-6">
-            Your order <strong className="text-[#2C1810]">{orderId}</strong> has been placed.
+            Your order <strong className="text-[#2C1810]">#{placedOrderId ?? '—'}</strong> has been placed.
             A confirmation will be sent to <strong>{shipping.email}</strong>.
           </p>
           <div className="bg-[#F0E4D4] rounded-2xl p-4 mb-6 text-left">
             <p className="text-xs text-[#8B5E3C] mb-1">Shipping to</p>
             <p className="text-sm text-[#2C1810]">
               {shipping.firstName} {shipping.lastName}<br />
-              {shipping.street}, {shipping.city}, {shipping.state} {shipping.zip}
+              {shipping.street}, {shipping.ward}, {shipping.city}, {shipping.province} {shipping.zip}
             </p>
             <p className="text-xs text-[#8B5E3C] mt-2">
               Payment via {payment.method === 'card' ? 'Credit Card' : payment.method === 'paypal' ? 'PayPal' : 'Apple Pay'}
@@ -241,25 +273,26 @@ export function CheckoutPage() {
 
                 <div className="space-y-4">
                   <div className="flex gap-4">
-                    <ShipField label="First Name" name="firstName" half />
-                    <ShipField label="Last Name" name="lastName" half />
+                    <ShipField label="Họ (Last Name)" name="lastName" half />
+                    <ShipField label="Tên (First Name)" name="firstName" half />
                   </div>
-                  <ShipField label="Email Address" name="email" type="email" />
-                  <ShipField label="Street Address" name="street" />
+                  <ShipField label="Email" name="email" type="email" />
+                  <ShipField label="Số nhà, tên đường (Street Address)" name="street" />
+                  <ShipField label="Phường/Xã (Ward/Commune)" name="ward" />
                   <div className="flex gap-4">
-                    <ShipField label="City" name="city" half />
-                    <ShipField label="State" name="state" half />
+                    <ShipField label="Quận/Huyện (District)" name="city" half />
+                    <ShipField label="Tỉnh/Thành phố (Province/City)" name="province" half />
                   </div>
                   <div className="flex gap-4">
-                    <ShipField label="ZIP Code" name="zip" half />
+                    <ShipField label="Mã bưu chính (Postal Code)" name="zip" half />
                     <div className="flex-1">
-                      <label className="block text-xs text-[#8B5E3C] mb-1">Country</label>
+                      <label className="block text-xs text-[#8B5E3C] mb-1">Quốc gia (Country)</label>
                       <select
                         value={shipping.country}
                         onChange={e => setShipping(prev => ({ ...prev, country: e.target.value }))}
                         className="w-full px-4 py-2.5 bg-[#F5EBE0] border border-transparent rounded-xl text-sm text-[#2C1810] focus:outline-none focus:ring-2 focus:ring-[#8B5E3C]/30"
                       >
-                        {['USA', 'Canada', 'UK', 'Australia', 'Germany', 'France', 'Japan'].map(c => (
+                        {['Việt Nam', 'USA', 'Canada', 'UK', 'Australia', 'Germany', 'France', 'Japan'].map(c => (
                           <option key={c}>{c}</option>
                         ))}
                       </select>
@@ -468,7 +501,7 @@ export function CheckoutPage() {
                     <button onClick={() => setStep('shipping')} className="text-xs text-[#8B5E3C] underline">Edit</button>
                   </div>
                   <p className="text-sm text-[#2C1810]">{shipping.firstName} {shipping.lastName} · {shipping.email}</p>
-                  <p className="text-sm text-[#8B5E3C]">{shipping.street}, {shipping.city}, {shipping.state} {shipping.zip}, {shipping.country}</p>
+                  <p className="text-sm text-[#8B5E3C]">{shipping.street}, {shipping.ward}, {shipping.city}, {shipping.province} {shipping.zip}, {shipping.country}</p>
                 </div>
 
                 {/* Payment summary */}
@@ -488,7 +521,7 @@ export function CheckoutPage() {
                 <div className="space-y-3 mb-5">
                   {items.map(item => (
                     <div key={item.cartKey} className="flex items-center gap-3 py-2 border-b border-[rgba(44,24,16,0.08)]">
-                      <img src={item.product.image} alt={item.product.name} className="w-12 h-12 rounded-lg object-cover" />
+                      <img src={item.product.image_url ?? 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=200&auto=format&fit=crop&q=80'} alt={item.product.name} className="w-12 h-12 rounded-lg object-cover" />
                       <div className="flex-1">
                         <p className="text-sm text-[#2C1810]">{item.product.name}</p>
                         <p className="text-xs text-[#8B5E3C]">
@@ -506,9 +539,10 @@ export function CheckoutPage() {
 
                 <button
                   onClick={handlePlaceOrder}
-                  className="w-full py-3.5 bg-[#4A6741] text-white rounded-full font-medium hover:bg-[#3d5836] transition-colors"
+                  disabled={isPlacingOrder}
+                  className="w-full py-3.5 bg-[#4A6741] text-white rounded-full font-medium hover:bg-[#3d5836] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  Place Order — ${total.toFixed(2)}
+                  {isPlacingOrder ? 'Placing Order…' : `Place Order — $${total.toFixed(2)}`}
                 </button>
                 <p className="text-xs text-center text-[#8B5E3C] mt-3">
                   This is a demo — no real payment or charge is processed.
@@ -524,7 +558,7 @@ export function CheckoutPage() {
               <div className="space-y-2 mb-4">
                 {items.map(item => (
                   <div key={item.cartKey} className="flex gap-2.5 text-sm">
-                    <img src={item.product.image} alt={item.product.name} className="w-10 h-10 rounded-lg object-cover shrink-0" />
+                    <img src={item.product.image_url ?? 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=200&auto=format&fit=crop&q=80'} alt={item.product.name} className="w-10 h-10 rounded-lg object-cover shrink-0" />
                     <div className="flex-1 min-w-0">
                       <p className="text-[#2C1810] truncate text-xs">{item.product.name}</p>
                       <p className="text-[#8B5E3C] text-xs">×{item.quantity}{item.grindSize && ` · ${item.grindSize}`}</p>

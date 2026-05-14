@@ -1,315 +1,271 @@
-import { useState } from 'react';
-import { Plus, Search, Edit2, Trash2, X, AlertTriangle } from 'lucide-react';
-import { Product, products as initialProducts, categories } from '../../data/mockData';
+import { useState, useEffect } from 'react';
+import { Search, Plus, Pencil, Trash2, Check, X } from 'lucide-react';
+import { api, ApiProduct, ApiCategory } from '../../services/api';
 import { toast } from 'sonner';
 
-const emptyProduct: Omit<Product, 'id' | 'rating' | 'reviewCount'> = {
-  name: '',
-  categoryId: 'cat-1',
-  categoryName: 'Whole Bean',
-  price: 0,
-  stock: 0,
-  description: '',
-  shortDescription: '',
-  image: initialProducts[0].image,
-  roastLevel: 'Medium',
-  origin: '',
-  processingMethod: 'Washed',
-  weight: '250g',
-  flavorNotes: [],
-};
+const roastOptions = ['Light', 'Medium', 'Dark'];
+const processOptions = ['Washed', 'Natural', 'Anaerobic', 'Honey'];
 
 export function AdminInventory() {
-  const [productList, setProductList] = useState<Product[]>(initialProducts);
-  const [search, setSearch] = useState('');
-  const [showModal, setShowModal] = useState(false);
-  const [editProduct, setEditProduct] = useState<Product | null>(null);
-  const [formData, setFormData] = useState(emptyProduct);
-  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [products, setProducts]   = useState<ApiProduct[]>([]);
+  const [categories, setCategories] = useState<ApiCategory[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editForm, setEditForm]   = useState<Partial<ApiProduct>>({});
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [addForm, setAddForm]     = useState<Partial<ApiProduct>>({ stock: 0, featured: false });
 
-  const filtered = productList.filter(p =>
-    p.name.toLowerCase().includes(search.toLowerCase()) ||
-    p.categoryName.toLowerCase().includes(search.toLowerCase()) ||
-    (p.origin || '').toLowerCase().includes(search.toLowerCase())
-  );
+  useEffect(() => {
+    Promise.all([
+      api.products.getAll({ limit: 200 }),
+      api.categories.getAll(),
+    ]).then(([prodRes, catRes]) => {
+      setProducts(prodRes.data);
+      setCategories(catRes.data);
+    }).catch(console.error)
+      .finally(() => setIsLoading(false));
+  }, []);
 
-  const openAdd = () => {
-    setEditProduct(null);
-    setFormData(emptyProduct);
-    setShowModal(true);
+  const startEdit = (p: ApiProduct) => {
+    setEditingId(p.id);
+    setEditForm({ name: p.name, price: p.price, stock: p.stock, roast_level: p.roast_level ?? undefined, badge: p.badge ?? undefined });
   };
 
-  const openEdit = (p: Product) => {
-    setEditProduct(p);
-    setFormData({ ...p });
-    setShowModal(true);
-  };
+  const cancelEdit = () => { setEditingId(null); setEditForm({}); };
 
-  const handleSave = () => {
-    if (!formData.name.trim()) { toast.error('Product name is required'); return; }
-    if (formData.price < 0) { toast.error('Price must be ≥ 0'); return; }
-    if (formData.stock < 0) { toast.error('Stock must be ≥ 0'); return; }
-
-    const cat = categories.find(c => c.id === formData.categoryId);
-    const updatedData = { ...formData, categoryName: cat?.name || formData.categoryName };
-
-    if (editProduct) {
-      setProductList(prev => prev.map(p => p.id === editProduct.id ? { ...p, ...updatedData } : p));
-      toast.success('Product updated!');
-    } else {
-      const newProduct: Product = {
-        ...updatedData,
-        id: `prod-${Date.now()}`,
-        rating: 0,
-        reviewCount: 0,
-      };
-      setProductList(prev => [...prev, newProduct]);
-      toast.success('Product added!');
+  const saveEdit = async (id: number) => {
+    try {
+      const updated = await api.products.update(id, editForm);
+      setProducts(prev => prev.map(p => p.id === id ? updated.data : p));
+      cancelEdit();
+      toast.success('Product updated.');
+    } catch {
+      toast.error('Failed to update product.');
     }
-    setShowModal(false);
   };
 
-  const handleDelete = (id: string) => {
-    setProductList(prev => prev.filter(p => p.id !== id));
-    setDeleteConfirm(null);
-    toast.success('Product deleted');
+  const handleStockAdjust = async (id: number, delta: number) => {
+    try {
+      const res = await api.products.adjustStock(id, { adjustment: delta });
+      setProducts(prev => prev.map(p => p.id === id ? { ...p, stock: res.data.stock } : p));
+    } catch {
+      toast.error('Stock update failed.');
+    }
   };
 
-  const stockStatus = (stock: number) => {
-    if (stock === 0) return 'bg-red-100 text-red-700';
-    if (stock <= 15) return 'bg-amber-100 text-amber-700';
-    return 'bg-[#4A6741]/10 text-[#4A6741]';
+  const handleDelete = async (p: ApiProduct) => {
+    if (!window.confirm(`Delete "${p.name}"?`)) return;
+    try {
+      await api.products.delete(p.id);
+      setProducts(prev => prev.filter(x => x.id !== p.id));
+      toast.success('Product deleted.');
+    } catch {
+      toast.error('Failed to delete product.');
+    }
   };
+
+  const handleAddSubmit = async () => {
+    if (!addForm.name || !addForm.price || !addForm.category_id) {
+      toast.error('Name, price, and category are required.');
+      return;
+    }
+    try {
+      const res = await api.products.create(addForm);
+      setProducts(prev => [...prev, res.data]);
+      setShowAddForm(false);
+      setAddForm({ stock: 0, featured: false });
+      toast.success('Product created.');
+    } catch {
+      toast.error('Failed to create product.');
+    }
+  };
+
+  const filtered = products.filter(p =>
+    !searchQuery || p.name.toLowerCase().includes(searchQuery.toLowerCase()) || p.origin?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-serif text-3xl text-[#2C1810]">Inventory</h1>
-          <p className="text-sm text-[#8B5E3C]">{productList.length} products</p>
+          <h1 className="font-serif text-2xl text-[#2C1810]">Inventory</h1>
+          <p className="text-sm text-[#8B5E3C]">Manage products, prices, and stock levels.</p>
         </div>
         <button
-          onClick={openAdd}
-          className="flex items-center gap-2 px-5 py-2.5 bg-[#2C1810] text-[#FAF3EB] rounded-full text-sm hover:bg-[#3D2318] transition-colors"
+          onClick={() => setShowAddForm(!showAddForm)}
+          className="flex items-center gap-2 px-4 py-2 bg-[#2C1810] text-[#FAF3EB] rounded-xl text-sm hover:bg-[#3D2318] transition-colors"
         >
-          <Plus size={15} /> Add Product
+          <Plus size={14} /> Add Product
         </button>
       </div>
 
-      {/* Search */}
-      <div className="relative">
-        <Search size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-[#8B5E3C]" />
-        <input
-          type="text"
-          placeholder="Search products..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          className="w-full pl-10 pr-4 py-2.5 bg-white border border-[rgba(44,24,16,0.12)] rounded-full text-sm text-[#2C1810] placeholder-[#8B5E3C]/60 focus:outline-none focus:ring-2 focus:ring-[#8B5E3C]/30"
-        />
-      </div>
-
-      {/* Table */}
-      <div className="bg-white rounded-2xl shadow-sm border border-[rgba(44,24,16,0.06)] overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-[#F5EBE0]">
-              <tr>
-                <th className="text-left px-4 py-3 text-xs text-[#8B5E3C] font-medium">Product</th>
-                <th className="text-left px-4 py-3 text-xs text-[#8B5E3C] font-medium">Category</th>
-                <th className="text-left px-4 py-3 text-xs text-[#8B5E3C] font-medium">Roast</th>
-                <th className="text-right px-4 py-3 text-xs text-[#8B5E3C] font-medium">Price</th>
-                <th className="text-center px-4 py-3 text-xs text-[#8B5E3C] font-medium">Stock</th>
-                <th className="text-center px-4 py-3 text-xs text-[#8B5E3C] font-medium">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map(p => (
-                <tr key={p.id} className="border-t border-[rgba(44,24,16,0.05)] hover:bg-[#FAF3EB] transition-colors">
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      <img src={p.image} alt={p.name} className="w-10 h-10 rounded-lg object-cover" />
-                      <div>
-                        <p className="text-[#2C1810] font-medium">{p.name}</p>
-                        {p.origin && <p className="text-xs text-[#8B5E3C]">{p.origin}</p>}
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-[#8B5E3C] text-xs">{p.categoryName}</td>
-                  <td className="px-4 py-3 text-[#8B5E3C] text-xs">{p.roastLevel || '—'}</td>
-                  <td className="px-4 py-3 text-right text-[#2C1810] font-medium">${p.price.toFixed(2)}</td>
-                  <td className="px-4 py-3 text-center">
-                    <span className={`text-xs px-2.5 py-0.5 rounded-full ${stockStatus(p.stock)}`}>
-                      {p.stock === 0 ? 'Out of Stock' : `${p.stock} units`}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center justify-center gap-2">
-                      <button onClick={() => openEdit(p)} className="p-1.5 text-[#8B5E3C] hover:text-[#2C1810] rounded-lg hover:bg-[#F0E4D4] transition-colors">
-                        <Edit2 size={13} />
-                      </button>
-                      <button onClick={() => setDeleteConfirm(p.id)} className="p-1.5 text-[#8B5E3C] hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors">
-                        <Trash2 size={13} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Add/Edit Modal */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between p-5 border-b border-[rgba(44,24,16,0.08)]">
-              <h2 className="font-medium text-[#2C1810]">{editProduct ? 'Edit Product' : 'Add New Product'}</h2>
-              <button onClick={() => setShowModal(false)}>
-                <X size={18} className="text-[#8B5E3C]" />
-              </button>
-            </div>
-            <div className="p-5 space-y-4">
-              <div>
-                <label className="block text-xs text-[#8B5E3C] mb-1">Product Name *</label>
+      {/* Add product form */}
+      {showAddForm && (
+        <div className="bg-white rounded-2xl p-5 border border-[rgba(44,24,16,0.12)] shadow-sm">
+          <h3 className="text-sm font-medium text-[#2C1810] mb-4">New Product</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {[
+              { key: 'name', label: 'Name *', type: 'text', placeholder: 'Ethiopia Yirgacheffe' },
+              { key: 'price', label: 'Price *', type: 'number', placeholder: '22.00' },
+              { key: 'stock', label: 'Stock', type: 'number', placeholder: '50' },
+              { key: 'origin', label: 'Origin', type: 'text', placeholder: 'Ethiopia' },
+              { key: 'weight', label: 'Weight', type: 'text', placeholder: '250g' },
+              { key: 'image_url', label: 'Image URL', type: 'text', placeholder: 'https://…' },
+            ].map(({ key, label, type, placeholder }) => (
+              <div key={key}>
+                <label className="block text-xs text-[#8B5E3C] mb-1">{label}</label>
                 <input
-                  value={formData.name}
-                  onChange={e => setFormData(p => ({ ...p, name: e.target.value }))}
-                  className="w-full px-3 py-2 bg-[#F5EBE0] border border-transparent rounded-lg text-sm text-[#2C1810] focus:outline-none focus:ring-1 focus:ring-[#8B5E3C]"
+                  type={type}
+                  placeholder={placeholder}
+                  value={(addForm as Record<string, unknown>)[key] as string ?? ''}
+                  onChange={e => setAddForm(p => ({ ...p, [key]: type === 'number' ? Number(e.target.value) : e.target.value }))}
+                  className="w-full px-3 py-2 bg-[#FAF3EB] border border-[rgba(44,24,16,0.12)] rounded-lg text-sm text-[#2C1810] focus:outline-none"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs text-[#8B5E3C] mb-1">Category</label>
-                  <select
-                    value={formData.categoryId}
-                    onChange={e => {
-                      const cat = categories.find(c => c.id === e.target.value);
-                      setFormData(p => ({ ...p, categoryId: e.target.value, categoryName: cat?.name || '' }));
-                    }}
-                    className="w-full px-3 py-2 bg-[#F5EBE0] border border-transparent rounded-lg text-sm text-[#2C1810] focus:outline-none"
-                  >
-                    {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs text-[#8B5E3C] mb-1">Roast Level</label>
-                  <select
-                    value={formData.roastLevel || ''}
-                    onChange={e => setFormData(p => ({ ...p, roastLevel: e.target.value as any }))}
-                    className="w-full px-3 py-2 bg-[#F5EBE0] border border-transparent rounded-lg text-sm text-[#2C1810] focus:outline-none"
-                  >
-                    <option value="">None</option>
-                    <option>Light</option>
-                    <option>Medium</option>
-                    <option>Dark</option>
-                  </select>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs text-[#8B5E3C] mb-1">Price ($) *</label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={formData.price}
-                    onChange={e => setFormData(p => ({ ...p, price: Math.max(0, parseFloat(e.target.value) || 0) }))}
-                    className="w-full px-3 py-2 bg-[#F5EBE0] border border-transparent rounded-lg text-sm text-[#2C1810] focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-[#8B5E3C] mb-1">Stock (units) *</label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={formData.stock}
-                    onChange={e => setFormData(p => ({ ...p, stock: Math.max(0, parseInt(e.target.value) || 0) }))}
-                    className="w-full px-3 py-2 bg-[#F5EBE0] border border-transparent rounded-lg text-sm text-[#2C1810] focus:outline-none"
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs text-[#8B5E3C] mb-1">Origin</label>
-                  <input
-                    value={formData.origin || ''}
-                    onChange={e => setFormData(p => ({ ...p, origin: e.target.value }))}
-                    className="w-full px-3 py-2 bg-[#F5EBE0] border border-transparent rounded-lg text-sm text-[#2C1810] focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-[#8B5E3C] mb-1">Process</label>
-                  <select
-                    value={formData.processingMethod || ''}
-                    onChange={e => setFormData(p => ({ ...p, processingMethod: e.target.value as any }))}
-                    className="w-full px-3 py-2 bg-[#F5EBE0] border border-transparent rounded-lg text-sm text-[#2C1810] focus:outline-none"
-                  >
-                    <option value="">None</option>
-                    <option>Washed</option>
-                    <option>Natural</option>
-                    <option>Anaerobic</option>
-                    <option>Honey</option>
-                  </select>
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs text-[#8B5E3C] mb-1">Short Description</label>
-                <input
-                  value={formData.shortDescription}
-                  onChange={e => setFormData(p => ({ ...p, shortDescription: e.target.value }))}
-                  className="w-full px-3 py-2 bg-[#F5EBE0] border border-transparent rounded-lg text-sm text-[#2C1810] focus:outline-none"
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-[#8B5E3C] mb-1">Full Description</label>
-                <textarea
-                  rows={3}
-                  value={formData.description}
-                  onChange={e => setFormData(p => ({ ...p, description: e.target.value }))}
-                  className="w-full px-3 py-2 bg-[#F5EBE0] border border-transparent rounded-lg text-sm text-[#2C1810] focus:outline-none resize-none"
-                />
-              </div>
-              <div className="flex gap-3 pt-2">
-                <button
-                  onClick={() => setShowModal(false)}
-                  className="flex-1 py-2.5 border border-[rgba(44,24,16,0.12)] text-[#8B5E3C] rounded-full text-sm hover:bg-[#F0E4D4] transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleSave}
-                  className="flex-1 py-2.5 bg-[#2C1810] text-[#FAF3EB] rounded-full text-sm hover:bg-[#3D2318] transition-colors"
-                >
-                  {editProduct ? 'Save Changes' : 'Add Product'}
-                </button>
-              </div>
+            ))}
+            <div>
+              <label className="block text-xs text-[#8B5E3C] mb-1">Category *</label>
+              <select
+                value={addForm.category_id ?? ''}
+                onChange={e => setAddForm(p => ({ ...p, category_id: Number(e.target.value) }))}
+                className="w-full px-3 py-2 bg-[#FAF3EB] border border-[rgba(44,24,16,0.12)] rounded-lg text-sm text-[#2C1810] focus:outline-none"
+              >
+                <option value="">Select…</option>
+                {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
             </div>
+            <div>
+              <label className="block text-xs text-[#8B5E3C] mb-1">Roast Level</label>
+              <select
+                value={addForm.roast_level ?? ''}
+                onChange={e => setAddForm(p => ({ ...p, roast_level: e.target.value as ApiProduct['roast_level'] }))}
+                className="w-full px-3 py-2 bg-[#FAF3EB] border border-[rgba(44,24,16,0.12)] rounded-lg text-sm text-[#2C1810] focus:outline-none"
+              >
+                <option value="">None</option>
+                {roastOptions.map(r => <option key={r} value={r}>{r}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs text-[#8B5E3C] mb-1">Processing</label>
+              <select
+                value={addForm.processing_method ?? ''}
+                onChange={e => setAddForm(p => ({ ...p, processing_method: e.target.value as ApiProduct['processing_method'] }))}
+                className="w-full px-3 py-2 bg-[#FAF3EB] border border-[rgba(44,24,16,0.12)] rounded-lg text-sm text-[#2C1810] focus:outline-none"
+              >
+                <option value="">None</option>
+                {processOptions.map(m => <option key={m} value={m}>{m}</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="mt-3">
+            <label className="block text-xs text-[#8B5E3C] mb-1">Short Description</label>
+            <textarea
+              rows={2}
+              value={addForm.short_description ?? ''}
+              onChange={e => setAddForm(p => ({ ...p, short_description: e.target.value }))}
+              className="w-full px-3 py-2 bg-[#FAF3EB] border border-[rgba(44,24,16,0.12)] rounded-lg text-sm text-[#2C1810] focus:outline-none resize-none"
+            />
+          </div>
+          <div className="flex gap-3 mt-4">
+            <button onClick={handleAddSubmit} className="px-4 py-2 bg-[#4A6741] text-white rounded-xl text-sm hover:bg-[#3d5836] transition-colors">Create Product</button>
+            <button onClick={() => setShowAddForm(false)} className="px-4 py-2 border border-[rgba(44,24,16,0.12)] text-[#8B5E3C] rounded-xl text-sm hover:bg-[#F0E4D4] transition-colors">Cancel</button>
           </div>
         </div>
       )}
 
-      {/* Delete Confirm */}
-      {deleteConfirm && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
-                <AlertTriangle size={18} className="text-red-600" />
-              </div>
-              <h3 className="font-medium text-[#2C1810]">Delete Product?</h3>
-            </div>
-            <p className="text-sm text-[#8B5E3C] mb-5">
-              This will permanently remove <strong>{productList.find(p => p.id === deleteConfirm)?.name}</strong>. This action cannot be undone.
-            </p>
-            <div className="flex gap-3">
-              <button onClick={() => setDeleteConfirm(null)} className="flex-1 py-2.5 border border-[rgba(44,24,16,0.12)] text-[#8B5E3C] rounded-full text-sm">
-                Cancel
-              </button>
-              <button onClick={() => handleDelete(deleteConfirm)} className="flex-1 py-2.5 bg-red-600 text-white rounded-full text-sm hover:bg-red-700 transition-colors">
-                Delete
-              </button>
-            </div>
+      {/* Search */}
+      <div className="relative">
+        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8B5E3C]" />
+        <input
+          type="text"
+          placeholder="Search products…"
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+          className="w-full pl-9 pr-4 py-2.5 bg-white border border-[rgba(44,24,16,0.12)] rounded-xl text-sm text-[#2C1810] placeholder-[#8B5E3C]/50 focus:outline-none"
+        />
+      </div>
+
+      {isLoading ? (
+        <div className="text-center py-20 text-[#8B5E3C]">Loading inventory…</div>
+      ) : (
+        <div className="bg-white rounded-2xl shadow-sm border border-[rgba(44,24,16,0.06)] overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-[#FAF3EB] border-b border-[#F0E4D4]">
+                  {['Product', 'Price', 'Stock', 'Roast', 'Status', ''].map(h => (
+                    <th key={h} className="text-left px-4 py-3 text-xs text-[#8B5E3C] font-medium whitespace-nowrap">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#F0E4D4]">
+                {filtered.map(p => (
+                  <tr key={p.id} className="hover:bg-[#FAF3EB]/30 transition-colors">
+                    {editingId === p.id ? (
+                      <>
+                        <td className="px-4 py-2">
+                          <input value={editForm.name ?? ''} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))}
+                            className="w-full px-2 py-1 text-xs border border-[#C4A882] rounded-lg focus:outline-none" />
+                        </td>
+                        <td className="px-4 py-2">
+                          <input type="number" value={editForm.price ?? ''} onChange={e => setEditForm(f => ({ ...f, price: e.target.value }))}
+                            className="w-20 px-2 py-1 text-xs border border-[#C4A882] rounded-lg focus:outline-none" />
+                        </td>
+                        <td className="px-4 py-2">
+                          <input type="number" value={editForm.stock ?? 0} onChange={e => setEditForm(f => ({ ...f, stock: Number(e.target.value) }))}
+                            className="w-16 px-2 py-1 text-xs border border-[#C4A882] rounded-lg focus:outline-none" />
+                        </td>
+                        <td className="px-4 py-2">
+                          <select value={editForm.roast_level ?? ''} onChange={e => setEditForm(f => ({ ...f, roast_level: e.target.value as ApiProduct['roast_level'] }))}
+                            className="px-2 py-1 text-xs border border-[#C4A882] rounded-lg focus:outline-none">
+                            <option value="">—</option>
+                            {roastOptions.map(r => <option key={r} value={r}>{r}</option>)}
+                          </select>
+                        </td>
+                        <td className="px-4 py-2" />
+                        <td className="px-4 py-2">
+                          <div className="flex gap-2">
+                            <button onClick={() => saveEdit(p.id)} className="w-6 h-6 rounded-lg bg-[#4A6741] text-white flex items-center justify-center"><Check size={11} /></button>
+                            <button onClick={cancelEdit} className="w-6 h-6 rounded-lg bg-[#F0E4D4] text-[#8B5E3C] flex items-center justify-center"><X size={11} /></button>
+                          </div>
+                        </td>
+                      </>
+                    ) : (
+                      <>
+                        <td className="px-4 py-3">
+                          <p className="font-medium text-[#2C1810] leading-tight">{p.name}</p>
+                          {p.origin && <p className="text-xs text-[#8B5E3C]">{p.origin}</p>}
+                        </td>
+                        <td className="px-4 py-3 text-[#2C1810]">${parseFloat(p.price).toFixed(2)}</td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-1.5">
+                            <button onClick={() => handleStockAdjust(p.id, -1)} className="w-5 h-5 rounded bg-[#F0E4D4] text-[#8B5E3C] flex items-center justify-center text-xs hover:bg-[#E8D0B5]">−</button>
+                            <span className={`text-xs font-medium w-6 text-center ${p.stock === 0 ? 'text-red-600' : p.stock <= 10 ? 'text-amber-600' : 'text-[#4A6741]'}`}>{p.stock}</span>
+                            <button onClick={() => handleStockAdjust(p.id, +1)} className="w-5 h-5 rounded bg-[#F0E4D4] text-[#8B5E3C] flex items-center justify-center text-xs hover:bg-[#E8D0B5]">+</button>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 text-xs text-[#8B5E3C]">{p.roast_level ?? '—'}</td>
+                        <td className="px-4 py-3">
+                          {p.stock === 0
+                            ? <span className="text-xs bg-red-50 text-red-600 px-2 py-0.5 rounded-full">Out of Stock</span>
+                            : p.stock <= 10
+                            ? <span className="text-xs bg-amber-50 text-amber-700 px-2 py-0.5 rounded-full">Low Stock</span>
+                            : <span className="text-xs bg-[#4A6741]/10 text-[#4A6741] px-2 py-0.5 rounded-full">In Stock</span>
+                          }
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex gap-2 justify-end">
+                            <button onClick={() => startEdit(p)} className="w-7 h-7 rounded-lg flex items-center justify-center text-[#8B5E3C] hover:bg-[#F0E4D4]"><Pencil size={12} /></button>
+                            <button onClick={() => handleDelete(p)} className="w-7 h-7 rounded-lg flex items-center justify-center text-[#8B5E3C] hover:bg-red-50 hover:text-red-600"><Trash2 size={12} /></button>
+                          </div>
+                        </td>
+                      </>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       )}

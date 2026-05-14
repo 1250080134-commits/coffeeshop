@@ -93,7 +93,7 @@ export function CartDrawer({ open, onClose }: CartDrawerProps) {
               {items.map(item => (
                 <div key={item.cartKey} className="flex gap-3 bg-white rounded-xl p-3 shadow-sm">
                   <img
-                    src={item.product.image}
+                    src={item.product.image_url ?? 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=200&auto=format&fit=crop&q=80'}
                     alt={item.product.name}
                     className="w-16 h-16 object-cover rounded-lg shrink-0"
                   />
@@ -112,7 +112,7 @@ export function CartDrawer({ open, onClose }: CartDrawerProps) {
                       )}
                       {!item.grindSize && (
                         <span className="text-xs text-[#8B5E3C]">
-                          {item.product.roastLevel ? `${item.product.roastLevel} Roast` : item.product.categoryName}
+                          {item.product.roast_level ? `${item.product.roast_level} Roast` : item.product.category?.name ?? 'Coffee'}
                           {item.product.weight && ` · ${item.product.weight}`}
                         </span>
                       )}

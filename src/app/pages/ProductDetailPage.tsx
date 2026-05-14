@@ -1,41 +1,66 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ArrowLeft, ShoppingCart, Star, Minus, Plus, Leaf, Globe, Coffee, ChevronDown } from 'lucide-react';
 import { useParams, Link, useNavigate } from 'react-router';
-import { products } from '../data/mockData';
+import { api, ApiProduct } from '../services/api';
 import { useCart } from '../context/CartContext';
 import { toast } from 'sonner';
 import { ProductCard } from '../components/ProductCard';
 
 const roastBadge: Record<string, string> = {
-  Light: 'bg-amber-100 text-amber-800',
+  Light:  'bg-amber-100 text-amber-800',
   Medium: 'bg-[#C4A882] text-[#2C1810]',
-  Dark: 'bg-[#2C1810] text-white',
+  Dark:   'bg-[#2C1810] text-white',
 };
 
 const GRIND_OPTIONS = [
-  { id: 'Whole Bean', label: 'Whole Bean', desc: 'Grind fresh at home' },
-  { id: 'Espresso', label: 'Espresso', desc: 'Fine · Espresso machines' },
-  { id: 'Pour Over', label: 'Pour Over', desc: 'Medium-fine · V60, Chemex' },
-  { id: 'Drip', label: 'Drip / Filter', desc: 'Medium · Drip machines' },
-  { id: 'French Press', label: 'French Press', desc: 'Coarse · Cold Brew too' },
+  { id: 'Whole Bean',   label: 'Whole Bean',   desc: 'Grind fresh at home' },
+  { id: 'Espresso',     label: 'Espresso',      desc: 'Fine · Espresso machines' },
+  { id: 'Pour Over',    label: 'Pour Over',     desc: 'Medium-fine · V60, Chemex' },
+  { id: 'Drip',         label: 'Drip / Filter', desc: 'Medium · Drip machines' },
+  { id: 'French Press', label: 'French Press',  desc: 'Coarse · Cold Brew too' },
 ];
 
 const WEIGHT_OPTIONS = [
   { label: '250g', multiplier: 1.0 },
   { label: '500g', multiplier: 1.8 },
-  { label: '1kg', multiplier: 3.4 },
+  { label: '1kg',  multiplier: 3.4 },
 ];
 
 export function ProductDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { addToCart } = useCart();
+  const [product, setProduct] = useState<ApiProduct | null>(null);
+  const [related, setRelated] = useState<ApiProduct[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
   const [selectedGrind, setSelectedGrind] = useState('Whole Bean');
   const [selectedWeight, setSelectedWeight] = useState('250g');
   const [grindDropdownOpen, setGrindDropdownOpen] = useState(false);
 
-  const product = products.find(p => p.id === id);
+  useEffect(() => {
+    if (!id) return;
+    setIsLoading(true);
+    api.products.getById(Number(id))
+      .then(res => {
+        setProduct(res.data);
+        // Load related products from the same category
+        return api.products.getAll({ category_id: res.data.category_id, limit: 4 });
+      })
+      .then(res => {
+        setRelated(res.data.filter(p => p.id !== Number(id)).slice(0, 3));
+      })
+      .catch(() => setProduct(null))
+      .finally(() => setIsLoading(false));
+  }, [id]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[#FAF3EB] flex items-center justify-center">
+        <div className="text-[#8B5E3C]">Loading…</div>
+      </div>
+    );
+  }
 
   if (!product) {
     return (
@@ -48,13 +73,17 @@ export function ProductDetailPage() {
     );
   }
 
-  const isCoffee = product.categoryId !== 'cat-3'; // not accessories
-  const isWholeBean = product.categoryId === 'cat-1'; // whole bean category
+  const price         = parseFloat(product.price);
+  const originalPrice = product.original_price ? parseFloat(product.original_price) : null;
+  const rating        = product.rating ? parseFloat(product.rating) : null;
 
+  // Accessories category (id=3 by default) don't need grind selection
+  const isCoffee     = product.category_id !== 3;
+  const isWholeBean  = product.category_id === 1;
   const weightMultiplier = WEIGHT_OPTIONS.find(w => w.label === selectedWeight)?.multiplier ?? 1;
-  const unitPrice = parseFloat((product.price * weightMultiplier).toFixed(2));
-
-  const related = products.filter(p => p.id !== product.id && p.categoryId === product.categoryId).slice(0, 3);
+  const unitPrice    = parseFloat((price * weightMultiplier).toFixed(2));
+  const roastPercent = product.roast_level === 'Light' ? 25 : product.roast_level === 'Medium' ? 60 : 90;
+  const selectedGrindOption = GRIND_OPTIONS.find(g => g.id === selectedGrind);
 
   const handleAddToCart = () => {
     if (product.stock < quantity) {
@@ -62,7 +91,7 @@ export function ProductDetailPage() {
       return;
     }
     addToCart(product, quantity, {
-      grindSize: isCoffee ? selectedGrind : undefined,
+      grindSize:      isCoffee ? selectedGrind : undefined,
       selectedWeight: isCoffee ? selectedWeight : undefined,
       unitPrice,
     });
@@ -71,13 +100,9 @@ export function ProductDetailPage() {
     });
   };
 
-  const roastPercent = product.roastLevel === 'Light' ? 25 : product.roastLevel === 'Medium' ? 60 : 90;
-  const selectedGrindOption = GRIND_OPTIONS.find(g => g.id === selectedGrind);
-
   return (
     <div className="min-h-screen bg-[#FAF3EB]">
       <div className="max-w-7xl mx-auto px-4 py-8">
-        {/* Breadcrumb */}
         <button
           onClick={() => navigate(-1)}
           className="flex items-center gap-2 text-sm text-[#8B5E3C] hover:text-[#2C1810] mb-6 transition-colors"
@@ -91,7 +116,7 @@ export function ProductDetailPage() {
           <div className="relative">
             <div className="rounded-3xl overflow-hidden aspect-square">
               <img
-                src={product.image}
+                src={product.image_url ?? 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=800&auto=format&fit=crop&q=80'}
                 alt={product.name}
                 className="w-full h-full object-cover"
               />
@@ -109,11 +134,11 @@ export function ProductDetailPage() {
           <div className="flex flex-col justify-center">
             <div className="flex items-center gap-2 mb-3">
               <span className="text-xs text-[#8B5E3C] bg-[#F0E4D4] px-3 py-1 rounded-full">
-                {product.categoryName}
+                {product.category?.name ?? 'Coffee'}
               </span>
-              {product.roastLevel && (
-                <span className={`text-xs px-3 py-1 rounded-full ${roastBadge[product.roastLevel]}`}>
-                  {product.roastLevel} Roast
+              {product.roast_level && (
+                <span className={`text-xs px-3 py-1 rounded-full ${roastBadge[product.roast_level]}`}>
+                  {product.roast_level} Roast
                 </span>
               )}
             </div>
@@ -123,7 +148,7 @@ export function ProductDetailPage() {
             {product.origin && (
               <p className="flex items-center gap-1.5 text-[#8B5E3C] text-sm mb-4">
                 <Globe size={14} />
-                {product.origin} · {product.processingMethod} process
+                {product.origin}{product.processing_method ? ` · ${product.processing_method} process` : ''}
               </p>
             )}
 
@@ -134,36 +159,33 @@ export function ProductDetailPage() {
                   <Star
                     key={n}
                     size={14}
-                    className={n <= Math.round(product.rating) ? 'fill-amber-400 text-amber-400' : 'text-gray-300 fill-gray-300'}
+                    className={n <= Math.round(rating ?? 0) ? 'fill-amber-400 text-amber-400' : 'text-gray-300 fill-gray-300'}
                   />
                 ))}
               </div>
-              <span className="text-sm text-[#2C1810] font-medium">{product.rating}</span>
-              <span className="text-sm text-[#8B5E3C]">({product.reviewCount} reviews)</span>
+              <span className="text-sm text-[#2C1810] font-medium">{rating?.toFixed(1) ?? '—'}</span>
+              <span className="text-sm text-[#8B5E3C]">({product.review_count} reviews)</span>
             </div>
 
             {/* Price */}
             <div className="flex items-baseline gap-3 mb-6">
               <span className="text-3xl text-[#2C1810] font-medium">${unitPrice.toFixed(2)}</span>
-              {product.originalPrice && selectedWeight === '250g' && (
-                <span className="text-lg text-[#8B5E3C] line-through">${product.originalPrice.toFixed(2)}</span>
+              {originalPrice && selectedWeight === '250g' && (
+                <span className="text-lg text-[#8B5E3C] line-through">${originalPrice.toFixed(2)}</span>
               )}
               <span className="text-sm text-[#8B5E3C]">/ {selectedWeight}</span>
-              {weightMultiplier > 1 && (
-                <span className="text-xs bg-[#4A6741]/10 text-[#4A6741] px-2 py-0.5 rounded-full">
-                  ~${(product.price / 250 * (selectedWeight === '500g' ? 500 : 1000) * (1 / weightMultiplier)).toFixed(1)}/100g saved
-                </span>
-              )}
             </div>
 
-            <p className="text-[#8B5E3C] leading-relaxed mb-6">{product.description}</p>
+            <p className="text-[#8B5E3C] leading-relaxed mb-6">
+              {product.description ?? product.short_description}
+            </p>
 
             {/* Flavor notes */}
-            {product.flavorNotes && (
+            {product.flavor_notes && product.flavor_notes.length > 0 && (
               <div className="mb-6">
                 <p className="text-xs text-[#8B5E3C] uppercase tracking-wider mb-2">Flavor Notes</p>
                 <div className="flex flex-wrap gap-2">
-                  {product.flavorNotes.map(note => (
+                  {product.flavor_notes.map(note => (
                     <span key={note} className="text-sm bg-[#F0E4D4] text-[#8B5E3C] px-3 py-1 rounded-full">
                       {note}
                     </span>
@@ -173,11 +195,11 @@ export function ProductDetailPage() {
             )}
 
             {/* Roast intensity */}
-            {product.roastLevel && (
+            {product.roast_level && (
               <div className="mb-6">
                 <div className="flex items-center justify-between mb-1">
                   <p className="text-xs text-[#8B5E3C] uppercase tracking-wider">Roast Intensity</p>
-                  <span className="text-xs text-[#8B5E3C]">{product.roastLevel}</span>
+                  <span className="text-xs text-[#8B5E3C]">{product.roast_level}</span>
                 </div>
                 <div className="h-2 bg-[#F0E4D4] rounded-full">
                   <div
@@ -192,10 +214,10 @@ export function ProductDetailPage() {
               </div>
             )}
 
-            {/* ── Coffee-specific selectors ── */}
+            {/* Coffee-specific selectors */}
             {isCoffee && (
               <div className="space-y-4 mb-6">
-                {/* Weight selector */}
+                {/* Weight */}
                 <div>
                   <p className="text-xs text-[#8B5E3C] uppercase tracking-wider mb-2">Weight</p>
                   <div className="flex gap-2">
@@ -211,20 +233,18 @@ export function ProductDetailPage() {
                       >
                         <span className="block">{opt.label}</span>
                         <span className={`text-xs ${selectedWeight === opt.label ? 'text-[#C4A882]' : 'text-[#8B5E3C]/70'}`}>
-                          ${(product.price * opt.multiplier).toFixed(2)}
+                          ${(price * opt.multiplier).toFixed(2)}
                         </span>
                       </button>
                     ))}
                   </div>
                 </div>
 
-                {/* Grind selector (only for coffee, show dropdown for whole bean / pre-ground) */}
+                {/* Grind */}
                 <div>
                   <p className="text-xs text-[#8B5E3C] uppercase tracking-wider mb-2">
                     Grind Size{!isWholeBean && ' (Pre-ground default shown)'}
                   </p>
-
-                  {/* Desktop: button row */}
                   <div className="hidden sm:grid grid-cols-5 gap-1.5">
                     {GRIND_OPTIONS.map(opt => (
                       <button
@@ -241,8 +261,6 @@ export function ProductDetailPage() {
                       </button>
                     ))}
                   </div>
-
-                  {/* Mobile: dropdown */}
                   <div className="sm:hidden relative">
                     <button
                       onClick={() => setGrindDropdownOpen(!grindDropdownOpen)}
@@ -271,7 +289,6 @@ export function ProductDetailPage() {
                       </div>
                     )}
                   </div>
-
                   {selectedGrindOption && (
                     <p className="text-xs text-[#8B5E3C] mt-1.5">{selectedGrindOption.desc}</p>
                   )}
@@ -324,7 +341,7 @@ export function ProductDetailPage() {
                 <Coffee size={13} className="text-[#8B5E3C]" />
                 Small Batch
               </div>
-              {product.processingMethod === 'Washed' && (
+              {product.processing_method === 'Washed' && (
                 <div className="flex items-center gap-2 text-xs text-[#8B5E3C]">
                   <Globe size={13} className="text-[#2C6B8A]" />
                   Washed Process

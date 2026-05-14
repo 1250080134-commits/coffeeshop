@@ -6,6 +6,8 @@ import { ShopPage } from './pages/ShopPage';
 import { ProductDetailPage } from './pages/ProductDetailPage';
 import { CheckoutPage } from './pages/CheckoutPage';
 import { OrderHistoryPage } from './pages/OrderHistoryPage';
+import { StoryPage } from './pages/StoryPage';
+import { BrewingGuidesPage } from './pages/BrewingGuidesPage';
 import { AdminDashboard } from './pages/admin/AdminDashboard';
 import { AdminInventory } from './pages/admin/AdminInventory';
 import { AdminOrders } from './pages/admin/AdminOrders';
@@ -23,8 +25,8 @@ export const router = createBrowserRouter([
       { path: 'product/:id', Component: ProductDetailPage },
       { path: 'checkout', Component: CheckoutPage },
       { path: 'orders', Component: OrderHistoryPage },
-      { path: 'story', Component: HomePage },
-      { path: 'guides', Component: HomePage },
+      { path: 'story', Component: StoryPage },
+      { path: 'guides', Component: BrewingGuidesPage },
     ],
   },
   {

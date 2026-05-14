@@ -1,10 +1,18 @@
 import { ArrowRight, Star, Coffee, Leaf, Package, Shield } from 'lucide-react';
 import { Link } from 'react-router';
-import { products, categories } from '../data/mockData';
+import { useState, useEffect } from 'react';
+import { api, ApiProduct, ApiCategory } from '../services/api';
 import { ProductCard } from '../components/ProductCard';
+import { Footer } from '../components/Footer';
 
 export function HomePage() {
-  const featured = products.filter(p => p.featured).slice(0, 4);
+  const [featured, setFeatured] = useState<ApiProduct[]>([]);
+  const [categories, setCategories] = useState<ApiCategory[]>([]);
+
+  useEffect(() => {
+    api.products.getAll({ featured: true, limit: 4 }).then(r => setFeatured(r.data)).catch(() => {});
+    api.categories.getAll().then(r => setCategories(r.data)).catch(() => {});
+  }, []);
 
   return (
     <div className="min-h-screen">
@@ -198,45 +206,7 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="bg-[#2C1810] text-[#E8D0B5] py-16 px-4">
-        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-8">
-          <div className="md:col-span-2">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-8 h-8 rounded-full bg-[#C4A882] flex items-center justify-center">
-                <Coffee size={16} className="text-[#2C1810]" />
-              </div>
-              <span className="font-serif text-lg text-[#FAF3EB]">Artisan Bean Hub</span>
-            </div>
-            <p className="text-sm leading-relaxed max-w-xs text-[#C4A882]">
-              Connecting passionate coffee lovers with exceptional beans from the world's finest origins.
-            </p>
-          </div>
-          <div>
-            <h4 className="text-[#FAF3EB] mb-4 text-sm">Shop</h4>
-            <ul className="space-y-2 text-sm">
-              {['Whole Bean', 'Ground Coffee', 'Accessories', 'Subscriptions'].map(item => (
-                <li key={item}><Link to="/shop" className="hover:text-[#FAF3EB] transition-colors">{item}</Link></li>
-              ))}
-            </ul>
-          </div>
-          <div>
-            <h4 className="text-[#FAF3EB] mb-4 text-sm">Info</h4>
-            <ul className="space-y-2 text-sm">
-              {['Our Story', 'Brewing Guides', 'FAQ', 'Contact'].map(item => (
-                <li key={item}><Link to="/story" className="hover:text-[#FAF3EB] transition-colors">{item}</Link></li>
-              ))}
-            </ul>
-          </div>
-        </div>
-        <div className="max-w-7xl mx-auto mt-12 pt-8 border-t border-[rgba(255,255,255,0.1)] flex flex-col sm:flex-row justify-between gap-4 text-xs text-[#8B5E3C]">
-          <p>© 2024 Artisan Bean Hub. All rights reserved.</p>
-          <div className="flex gap-4">
-            <Link to="/" className="hover:text-[#C4A882]">Privacy Policy</Link>
-            <Link to="/" className="hover:text-[#C4A882]">Terms of Service</Link>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }
