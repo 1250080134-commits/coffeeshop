@@ -25,6 +25,7 @@ module.exports = (sequelize, DataTypes) => {
           len:      { args: [2, 100], msg: 'Name must be 2–100 characters.' },
         },
       },
+<<<<<<< HEAD
       slug: {
         type:      DataTypes.STRING(100),
         allowNull: true,
@@ -36,6 +37,8 @@ module.exports = (sequelize, DataTypes) => {
           },
         },
       },
+=======
+>>>>>>> e894781abe9e9da34ab7766a384f0b3ac9492f74
       description: {
         type:      DataTypes.TEXT,
         allowNull: true,

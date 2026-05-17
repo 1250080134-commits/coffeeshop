@@ -93,7 +93,7 @@ export function Navbar({ onCartOpen, onAuthOpen, isAdmin = false }: NavbarProps)
 
                 {/* User / Auth */}
                 {isAuthenticated && user ? (
-                  <div className="relative hidden sm:block">
+                  <div className="relative">
                     <button
                       onClick={() => setUserMenuOpen(!userMenuOpen)}
                       className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-[#3D2318] hover:bg-[#4a2c1e] rounded-full transition-colors"
@@ -144,7 +144,7 @@ export function Navbar({ onCartOpen, onAuthOpen, isAdmin = false }: NavbarProps)
                 ) : (
                   <button
                     onClick={onAuthOpen}
-                    className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-xs bg-[#C4A882] text-[#2C1810] hover:bg-[#E8D0B5] rounded-full transition-colors font-medium"
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-[#C4A882] text-[#2C1810] hover:bg-[#E8D0B5] rounded-full transition-colors font-medium"
                   >
                     <User size={12} />
                     Sign In
@@ -197,30 +197,30 @@ export function Navbar({ onCartOpen, onAuthOpen, isAdmin = false }: NavbarProps)
                     >
                       Order History
                     </Link>
-                    <button
-                      onClick={() => { handleLogout(); setMobileOpen(false); }}
-                      className="text-left text-red-400 hover:text-red-300 text-sm py-1"
-                    >
-                      Sign Out ({user.username})
-                    </button>
+                    <div className="border-t border-[#4a2c1e] pt-2 mt-1">
+                      <p className="text-xs text-[#C4A882] mb-1">Signed in as {user.username}</p>
+                      {user.role === 'Admin' && (
+                        <Link to="/admin" onClick={() => setMobileOpen(false)} className="block text-[#E8D0B5] hover:text-white text-sm py-1">
+                          Admin Dashboard
+                        </Link>
+                      )}
+                      <button
+                        onClick={() => { handleLogout(); setMobileOpen(false); }}
+                        className="text-left text-red-400 hover:text-red-300 text-sm py-1"
+                      >
+                        Sign Out
+                      </button>
+                    </div>
                   </>
                 ) : (
                   <button
                     onClick={() => { onAuthOpen(); setMobileOpen(false); }}
-                    className="text-[#C4A882] hover:text-white text-sm py-1 text-left"
+                    className="flex items-center gap-2 px-4 py-2 bg-[#C4A882] text-[#2C1810] rounded-full text-sm font-medium mt-1"
                   >
                     Sign In / Create Account
                   </button>
                 )}
-                {user?.role === 'Admin' && (
-                  <Link
-                    to="/admin"
-                    onClick={() => setMobileOpen(false)}
-                    className="text-[#E8D0B5] hover:text-white text-sm py-1"
-                  >
-                    Admin Dashboard
-                  </Link>
-                )}
+
               </>
             )}
           </nav>

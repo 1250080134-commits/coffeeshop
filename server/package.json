@@ -1,4 +1,5 @@
 {
+<<<<<<< HEAD
   "name": "fondo-server",
   "version": "1.0.0",
   "description": "Backend API for Fondo specialty coffee platform",
@@ -29,6 +30,31 @@
   },
   "devDependencies": {
     "nodemon":       "^3.1.0",
+=======
+  "name": "artisan-bean-hub-server",
+  "version": "1.0.0",
+  "description": "Backend API for The Artisan Bean Hub specialty coffee platform",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "dev": "nodemon app.js",
+    "db:migrate": "npx sequelize-cli db:migrate",
+    "db:migrate:undo": "npx sequelize-cli db:migrate:undo:all",
+    "db:seed": "node seeders/seed.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.18.3",
+    "express-validator": "^7.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "mysql2": "^3.9.3",
+    "sequelize": "^6.37.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0",
+>>>>>>> e894781abe9e9da34ab7766a384f0b3ac9492f74
     "sequelize-cli": "^6.6.2"
   }
 }

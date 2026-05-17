@@ -1,6 +1,7 @@
 /**
  * seeders/seed.js
  *
+<<<<<<< HEAD
  * Populates the database with the Fondo initial dataset.
  * Run with: node seeders/seed.js  OR  npm run db:seed
  *
@@ -11,17 +12,28 @@
  *   2. Users      (no deps)
  *   3. Products   (→ categories)
  *   4. BrewingGuides (no deps)
+=======
+ * Populates the database with the Artisan Bean Hub initial dataset.
+ * Run with: node seeders/seed.js
+ *
+ * Idempotent — skips any record that already exists.
+>>>>>>> e894781abe9e9da34ab7766a384f0b3ac9492f74
  */
 
 require('dotenv').config({ path: require('path').join(__dirname, '../.env') });
 
+<<<<<<< HEAD
 const { sequelize, User, Category, Product, BrewingGuide } = require('../models');
+=======
+const { sequelize, User, Category, Product } = require('../models');
+>>>>>>> e894781abe9e9da34ab7766a384f0b3ac9492f74
 
 const seed = async () => {
   try {
     await sequelize.authenticate();
     console.log('✅  Connected to database.');
 
+<<<<<<< HEAD
     // ── 1. Categories ──────────────────────────────────────────────────────
     const [wholeBeanCat] = await Category.findOrCreate({
       where: { slug: 'whole-bean' },
@@ -39,6 +51,16 @@ const seed = async () => {
     console.log('✅  Categories seeded.');
 
     // ── 2. Admin Users ─────────────────────────────────────────────────────
+=======
+    // ── Categories ────────────────────────────────────────────────────────
+    const [wholeBeanCat]  = await Category.findOrCreate({ where: { name: 'Whole Bean' },    defaults: { description: 'Fresh whole beans for the ultimate grind experience' } });
+    const [groundCat]     = await Category.findOrCreate({ where: { name: 'Ground Coffee' }, defaults: { description: 'Pre-ground for convenience without compromise' } });
+    const [accessoryCat]  = await Category.findOrCreate({ where: { name: 'Accessories' },   defaults: { description: 'Premium brewing tools and equipment' } });
+
+    console.log('✅  Categories seeded.');
+
+    // ── Admin User ────────────────────────────────────────────────────────
+>>>>>>> e894781abe9e9da34ab7766a384f0b3ac9492f74
     await User.findOrCreate({
       where: { email: 'admin@artisanbean.com' },
       defaults: {
@@ -57,6 +79,7 @@ const seed = async () => {
       },
     });
 
+<<<<<<< HEAD
     // Demo customer
     await User.findOrCreate({
       where: { email: 'sarah.m@email.com' },
@@ -70,13 +93,22 @@ const seed = async () => {
     console.log('✅  Users seeded.');
 
     // ── 3. Products ────────────────────────────────────────────────────────
+=======
+    console.log('✅  Admin users seeded.');
+
+    // ── Products ──────────────────────────────────────────────────────────
+>>>>>>> e894781abe9e9da34ab7766a384f0b3ac9492f74
     const productData = [
       {
         name: 'Ethiopia Yirgacheffe',
         category_id: wholeBeanCat.id,
         price: 22.00, stock: 48, roast_level: 'Light',
         origin: 'Ethiopia', processing_method: 'Washed',
+<<<<<<< HEAD
         description: 'Grown at high altitudes in the birthplace of coffee, this Yirgacheffe delivers an exceptionally clean cup with bright acidity and floral complexity.',
+=======
+        description: 'Grown at high altitudes in the birthplace of coffee, this Yirgacheffe delivers an exceptionally clean cup with bright acidity.',
+>>>>>>> e894781abe9e9da34ab7766a384f0b3ac9492f74
         short_description: 'Bright, floral, and clean with jasmine and bergamot.',
         weight: '250g', flavor_notes: ['Jasmine', 'Bergamot', 'Peach', 'Lemon Zest'],
         rating: 4.9, review_count: 128, featured: true, badge: 'Bestseller',
@@ -87,7 +119,11 @@ const seed = async () => {
         category_id: wholeBeanCat.id,
         price: 19.50, original_price: 24.00, stock: 62, roast_level: 'Medium',
         origin: 'Colombia', processing_method: 'Washed',
+<<<<<<< HEAD
         description: 'Sourced from family farms in the Huila department, nestled in the Andes mountains at 1,700m elevation.',
+=======
+        description: 'Sourced from family farms in the Huila department, nestled in the Andes mountains.',
+>>>>>>> e894781abe9e9da34ab7766a384f0b3ac9492f74
         short_description: 'Caramel sweetness balanced with a bright, clean finish.',
         weight: '250g', flavor_notes: ['Caramel', 'Red Apple', 'Hazelnut', 'Brown Sugar'],
         rating: 4.7, review_count: 95, featured: true, badge: 'Sale',
@@ -109,7 +145,11 @@ const seed = async () => {
         category_id: wholeBeanCat.id,
         price: 26.00, stock: 24, roast_level: 'Light',
         origin: 'Kenya', processing_method: 'Washed',
+<<<<<<< HEAD
         description: "Kenya AA represents the country's highest grade, selected for size, density, and cup quality from the Kirinyaga region.",
+=======
+        description: 'Kenya AA represents the country\'s highest grade, with beans selected for size, density, and cup quality.',
+>>>>>>> e894781abe9e9da34ab7766a384f0b3ac9492f74
         short_description: 'Vibrant wine-like acidity with blackcurrant and citrus.',
         weight: '250g', flavor_notes: ['Blackcurrant', 'Grapefruit', 'Tomato', 'Black Tea'],
         rating: 4.8, review_count: 64, featured: false, badge: 'Limited',
@@ -120,7 +160,11 @@ const seed = async () => {
         category_id: wholeBeanCat.id,
         price: 24.50, stock: 41, roast_level: 'Medium',
         origin: 'Costa Rica', processing_method: 'Anaerobic',
+<<<<<<< HEAD
         description: 'This experimental lot undergoes anaerobic fermentation before drying, pushing flavor boundaries with intense tropical fruit character.',
+=======
+        description: 'This experimental lot undergoes anaerobic fermentation before drying, pushing flavor boundaries.',
+>>>>>>> e894781abe9e9da34ab7766a384f0b3ac9492f74
         short_description: 'Experimental anaerobic with tropical fruit and wine notes.',
         weight: '250g', flavor_notes: ['Mango', 'Passionfruit', 'Red Wine', 'Honey'],
         rating: 4.7, review_count: 43, featured: false, badge: 'New',
@@ -131,8 +175,13 @@ const seed = async () => {
         category_id: wholeBeanCat.id,
         price: 48.00, stock: 12, roast_level: 'Light',
         origin: 'Panama', processing_method: 'Washed',
+<<<<<<< HEAD
         description: 'The legendary Geisha variety from Panama — the most celebrated coffee in the world. Exceptionally limited.',
         short_description: "The world's most celebrated variety — floral, tea-like, extraordinary.",
+=======
+        description: 'The legendary Geisha variety from Panama — the most celebrated coffee in the world.',
+        short_description: 'The world\'s most celebrated variety — floral, tea-like, extraordinary.',
+>>>>>>> e894781abe9e9da34ab7766a384f0b3ac9492f74
         weight: '100g', flavor_notes: ['Jasmine Tea', 'Stone Fruit', 'Elderflower', 'Honey'],
         rating: 5.0, review_count: 31, featured: false, badge: 'Rare',
         image_url: 'https://images.unsplash.com/photo-1672851612794-6687bf0bf1a3?w=800',
@@ -142,7 +191,11 @@ const seed = async () => {
         category_id: groundCat.id,
         price: 15.00, stock: 89, roast_level: 'Medium',
         origin: 'Brazil', processing_method: 'Natural',
+<<<<<<< HEAD
         description: 'Brazil Santos is the quintessential everyday espresso base — naturally processed for a fuller body and natural sweetness.',
+=======
+        description: 'Brazil Santos is the quintessential everyday espresso base — naturally processed for a fuller body.',
+>>>>>>> e894781abe9e9da34ab7766a384f0b3ac9492f74
         short_description: 'Classic smooth espresso base, naturally processed.',
         weight: '250g', flavor_notes: ['Chocolate', 'Almond', 'Caramel', 'Cream'],
         rating: 4.5, review_count: 112, featured: true,
@@ -153,7 +206,11 @@ const seed = async () => {
         category_id: groundCat.id,
         price: 16.50, stock: 57, roast_level: 'Dark',
         origin: 'Indonesia', processing_method: 'Natural',
+<<<<<<< HEAD
         description: "Processed using Indonesia's unique wet-hulled method, this Mandheling ground coffee delivers an unmistakable earthy, full-bodied cup.",
+=======
+        description: 'Processed using Indonesia\'s unique wet-hulled method, this Mandheling ground coffee is unlike anything else.',
+>>>>>>> e894781abe9e9da34ab7766a384f0b3ac9492f74
         short_description: 'Earthy, bold, and intensely full-bodied.',
         weight: '250g', flavor_notes: ['Cedar', 'Dark Chocolate', 'Dried Herbs', 'Tobacco'],
         rating: 4.4, review_count: 68, featured: false,
@@ -164,7 +221,11 @@ const seed = async () => {
         category_id: groundCat.id,
         price: 17.00, stock: 44, roast_level: 'Medium',
         origin: 'Peru', processing_method: 'Washed',
+<<<<<<< HEAD
         description: 'Certified organic and shade-grown by indigenous cooperatives in the Cajamarca highlands. Clean, gentle, and ethically exceptional.',
+=======
+        description: 'Certified organic and shade-grown by indigenous cooperatives in the Cajamarca highlands.',
+>>>>>>> e894781abe9e9da34ab7766a384f0b3ac9492f74
         short_description: 'Clean, gentle, and sustainable — ideal for filter brewing.',
         weight: '250g', flavor_notes: ['Milk Chocolate', 'Walnut', 'Sweet Citrus', 'Honey'],
         rating: 4.6, review_count: 55, featured: false, badge: 'Organic',
@@ -174,7 +235,11 @@ const seed = async () => {
         name: 'Hario V60 Pour Over Kit',
         category_id: accessoryCat.id,
         price: 45.00, stock: 18,
+<<<<<<< HEAD
         description: 'The iconic Hario V60 ceramic dripper bundled with a server, 100 filters, and a measuring spoon. Everything you need to start your pour-over journey.',
+=======
+        description: 'The iconic Hario V60 ceramic dripper bundled with a server, 100 filters, and a measuring spoon.',
+>>>>>>> e894781abe9e9da34ab7766a384f0b3ac9492f74
         short_description: 'Complete V60 pour-over starter kit for the discerning brewer.',
         rating: 4.9, review_count: 89, featured: true, badge: 'Top Pick',
         image_url: 'https://images.unsplash.com/photo-1764807504818-a704510e2a21?w=800',
@@ -183,7 +248,11 @@ const seed = async () => {
         name: 'Fellow Stagg EKG Kettle',
         category_id: accessoryCat.id,
         price: 165.00, stock: 9,
+<<<<<<< HEAD
         description: 'The Fellow Stagg EKG is the gold standard in electric gooseneck kettles. 1°C precision temperature control and a stopwatch mode for timing pours.',
+=======
+        description: 'The Fellow Stagg EKG is the gold standard in electric gooseneck kettles. Precision temperature control.',
+>>>>>>> e894781abe9e9da34ab7766a384f0b3ac9492f74
         short_description: 'Precision gooseneck kettle for professional pour-over control.',
         rating: 4.8, review_count: 42, featured: false, badge: 'Premium',
         image_url: 'https://images.unsplash.com/photo-1726922853685-564851ca79d7?w=800',
@@ -191,6 +260,7 @@ const seed = async () => {
     ];
 
     for (const data of productData) {
+<<<<<<< HEAD
       await Product.findOrCreate({ where: { name: data.name }, defaults: data });
     }
 
@@ -378,12 +448,26 @@ const seed = async () => {
     console.log('   Admin login: admin@artisanbean.com / Admin@12345');
     console.log('   Demo user:   sarah.m@email.com / Customer@123');
     console.log('\n   Start server: npm run dev');
+=======
+      await Product.findOrCreate({
+        where: { name: data.name },
+        defaults: data,
+      });
+    }
+
+    console.log('✅  Products seeded.');
+    console.log('\n🎉  Seed complete! You can now start the server with: npm run dev');
+>>>>>>> e894781abe9e9da34ab7766a384f0b3ac9492f74
 
     await sequelize.close();
     process.exit(0);
   } catch (err) {
+<<<<<<< HEAD
     console.error('❌  Seed failed:', err.message);
     console.error(err.stack);
+=======
+    console.error('❌  Seed failed:', err);
+>>>>>>> e894781abe9e9da34ab7766a384f0b3ac9492f74
     await sequelize.close();
     process.exit(1);
   }

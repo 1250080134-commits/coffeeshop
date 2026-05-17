@@ -42,7 +42,11 @@ const { sequelize, Order, OrderDetail, Product, User } = require('../models');
  * }
  */
 const createOrder = async (req, res) => {
+<<<<<<< HEAD
   const { items, shipping_address, notes, payment_method } = req.body;
+=======
+  const { items, shipping_address, notes } = req.body;
+>>>>>>> e894781abe9e9da34ab7766a384f0b3ac9492f74
 
   // ── Basic request validation ───────────────────────────────────────────────
   if (!Array.isArray(items) || items.length === 0) {
@@ -52,6 +56,7 @@ const createOrder = async (req, res) => {
     return res.status(422).json({ success: false, message: 'A complete shipping address is required.' });
   }
 
+<<<<<<< HEAD
   const VALID_PAYMENT = ['card', 'paypal', 'applepay'];
   const resolvedPayment = VALID_PAYMENT.includes(payment_method) ? payment_method : 'card';
 
@@ -76,6 +81,21 @@ const createOrder = async (req, res) => {
   }
 
   const productIds = [...itemMap.keys()];
+=======
+  // De-duplicate items (sum quantities for repeated product_ids)
+  const itemMap = new Map();
+  for (const item of items) {
+    const pid = parseInt(item.product_id, 10);
+    const qty = parseInt(item.quantity, 10);
+    if (!pid || qty < 1) {
+      return res.status(422).json({ success: false, message: 'Each item must have a valid product_id and quantity >= 1.' });
+    }
+    itemMap.set(pid, (itemMap.get(pid) || 0) + qty);
+  }
+
+  const productIds      = [...itemMap.keys()];
+  const requestedQtyMap = itemMap;
+>>>>>>> e894781abe9e9da34ab7766a384f0b3ac9492f74
 
   // ── Begin managed Sequelize transaction ───────────────────────────────────
   const t = await sequelize.transaction();
@@ -103,7 +123,11 @@ const createOrder = async (req, res) => {
     const stockErrors = [];
 
     for (const product of products) {
+<<<<<<< HEAD
       const { qty: requested } = itemMap.get(product.id);
+=======
+      const requested = requestedQtyMap.get(product.id);
+>>>>>>> e894781abe9e9da34ab7766a384f0b3ac9492f74
       if (requested > product.stock) {
         stockErrors.push({
           product_id:   product.id,
@@ -125,7 +149,11 @@ const createOrder = async (req, res) => {
 
     // ── Step 3: Atomically decrement each product's stock ──────────────────
     for (const product of products) {
+<<<<<<< HEAD
       const { qty: requested } = itemMap.get(product.id);
+=======
+      const requested = requestedQtyMap.get(product.id);
+>>>>>>> e894781abe9e9da34ab7766a384f0b3ac9492f74
       await product.decrement('stock', { by: requested, transaction: t });
     }
 
@@ -135,6 +163,7 @@ const createOrder = async (req, res) => {
     let subtotal = 0;
     const detailRows = [];
 
+<<<<<<< HEAD
     for (const [productId, { qty: quantity, grind_size, selected_weight }] of itemMap.entries()) {
       const product    = productMap.get(productId);
       const unit_price = parseFloat(product.price);
@@ -143,6 +172,16 @@ const createOrder = async (req, res) => {
     }
 
     const shipping_cost = subtotal >= 75 ? 0 : 5.99;
+=======
+    for (const [productId, quantity] of requestedQtyMap.entries()) {
+      const product    = productMap.get(productId);
+      const unit_price = parseFloat(product.price);
+      subtotal        += unit_price * quantity;
+      detailRows.push({ product_id: productId, quantity, unit_price });
+    }
+
+    const shipping_cost = subtotal >= 50 ? 0 : 5.99;          // free shipping over $50
+>>>>>>> e894781abe9e9da34ab7766a384f0b3ac9492f74
     const total         = subtotal + shipping_cost;
 
     // ── Step 5: Create the Order row ───────────────────────────────────────
@@ -154,7 +193,10 @@ const createOrder = async (req, res) => {
         shipping_cost,
         total,
         shipping_address,
+<<<<<<< HEAD
         payment_method: resolvedPayment,
+=======
+>>>>>>> e894781abe9e9da34ab7766a384f0b3ac9492f74
         notes: notes || null,
       },
       { transaction: t },

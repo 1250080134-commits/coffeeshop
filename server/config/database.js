@@ -8,9 +8,15 @@ require('dotenv').config();
 
 module.exports = {
   development: {
+<<<<<<< HEAD
     username: process.env.DB_USER     || 'coffee',
     password: process.env.DB_PASSWORD || null,
     database: process.env.DB_NAME     || 'fondo',
+=======
+    username: process.env.DB_USER     || 'root',
+    password: process.env.DB_PASSWORD || null,
+    database: process.env.DB_NAME     || 'artisan_bean_hub',
+>>>>>>> e894781abe9e9da34ab7766a384f0b3ac9492f74
     host:     process.env.DB_HOST     || '127.0.0.1',
     port:     parseInt(process.env.DB_PORT || '3306', 10),
     dialect:  'mysql',
@@ -24,9 +30,15 @@ module.exports = {
   },
 
   test: {
+<<<<<<< HEAD
     username: process.env.DB_USER     || 'coffee',
     password: process.env.DB_PASSWORD || null,
     database: `${process.env.DB_NAME || 'fondo'}_test`,
+=======
+    username: process.env.DB_USER     || 'root',
+    password: process.env.DB_PASSWORD || null,
+    database: `${process.env.DB_NAME || 'artisan_bean_hub'}_test`,
+>>>>>>> e894781abe9e9da34ab7766a384f0b3ac9492f74
     host:     process.env.DB_HOST     || '127.0.0.1',
     port:     parseInt(process.env.DB_PORT || '3306', 10),
     dialect:  'mysql',

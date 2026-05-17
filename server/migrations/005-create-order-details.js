@@ -1,7 +1,10 @@
 /**
  * Migration 005 — Create `order_details` table (Order ↔ Product junction)
+<<<<<<< HEAD
  *
  * Adds grind_size and selected_weight columns to match the OrderDetail model and schema.sql.
+=======
+>>>>>>> e894781abe9e9da34ab7766a384f0b3ac9492f74
  */
 
 'use strict';
@@ -38,6 +41,7 @@ module.exports = {
         allowNull: false,
         comment:   'Price snapshotted at order time',
       },
+<<<<<<< HEAD
       // ── grind_size and selected_weight are captured at checkout ──
       grind_size: {
         type:      Sequelize.STRING(50),
@@ -49,6 +53,8 @@ module.exports = {
         allowNull: true,
         comment:   'Weight option chosen at checkout, e.g. 250g, 500g, 1kg',
       },
+=======
+>>>>>>> e894781abe9e9da34ab7766a384f0b3ac9492f74
       created_at: {
         type:         Sequelize.DATE,
         allowNull:    false,
@@ -67,7 +73,10 @@ module.exports = {
       name:   'uq_order_product',
     });
 
+<<<<<<< HEAD
     await queryInterface.addIndex('order_details', ['order_id'],   { name: 'idx_order_details_order' });
+=======
+>>>>>>> e894781abe9e9da34ab7766a384f0b3ac9492f74
     await queryInterface.addIndex('order_details', ['product_id'], { name: 'idx_order_details_product' });
   },
 

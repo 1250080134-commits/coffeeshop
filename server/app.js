@@ -1,5 +1,6 @@
 /**
  * app.js — Express application entry point
+<<<<<<< HEAD
  * Fondo — Backend API (Production-Ready)
  *
  * Security hardening applied:
@@ -8,20 +9,31 @@
  *   • CORS with explicit origin allowlist
  *   • JSON body size capped at 1 mb to prevent payload flooding
  *   • Graceful shutdown on SIGTERM / SIGINT
+=======
+ * The Artisan Bean Hub — Backend API
+>>>>>>> e894781abe9e9da34ab7766a384f0b3ac9492f74
  */
 
 require('dotenv').config();
 
+<<<<<<< HEAD
 const express      = require('express');
 const cors         = require('cors');
 const helmet       = require('helmet');
 const rateLimit    = require('express-rate-limit');
 const { sequelize } = require('./models');
 const routes        = require('./routes');
+=======
+const express    = require('express');
+const cors       = require('cors');
+const { sequelize } = require('./models');
+const routes     = require('./routes');
+>>>>>>> e894781abe9e9da34ab7766a384f0b3ac9492f74
 
 const app  = express();
 const PORT = process.env.PORT || 5000;
 
+<<<<<<< HEAD
 // ─── Security Middleware ──────────────────────────────────────────────────────
 app.use(helmet());
 
@@ -60,11 +72,21 @@ const apiLimiter = rateLimit({
 
 app.use('/api/auth', authLimiter);
 app.use('/api',      apiLimiter);
+=======
+// ─── Global Middleware ────────────────────────────────────────────────────────
+app.use(cors({
+  origin: process.env.CLIENT_ORIGIN || 'http://localhost:5173',
+  credentials: true,
+}));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+>>>>>>> e894781abe9e9da34ab7766a384f0b3ac9492f74
 
 // ─── API Routes ───────────────────────────────────────────────────────────────
 app.use('/api', routes);
 
 // ─── Health Check ─────────────────────────────────────────────────────────────
+<<<<<<< HEAD
 app.get('/health', (_req, res) => res.json({
   status:    'ok',
   timestamp: new Date().toISOString(),
@@ -93,11 +115,33 @@ app.use((err, _req, res, _next) => {
 // ─── Database Connection & Server Start ──────────────────────────────────────
 let server;
 
+=======
+app.get('/health', (_req, res) => res.json({ status: 'ok', timestamp: new Date() }));
+
+// ─── 404 Handler ──────────────────────────────────────────────────────────────
+app.use((_req, res) => {
+  res.status(404).json({ success: false, message: 'Route not found' });
+});
+
+// ─── Global Error Handler ─────────────────────────────────────────────────────
+app.use((err, _req, res, _next) => {
+  console.error('[ERROR]', err.stack);
+  const statusCode = err.statusCode || 500;
+  res.status(statusCode).json({
+    success: false,
+    message: err.message || 'Internal Server Error',
+    ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),
+  });
+});
+
+// ─── Database Sync & Server Start ────────────────────────────────────────────
+>>>>>>> e894781abe9e9da34ab7766a384f0b3ac9492f74
 (async () => {
   try {
     await sequelize.authenticate();
     console.log('✅  Database connection established.');
 
+<<<<<<< HEAD
     // In development, use Sequelize sync with alter for convenience.
     // In production, use migrations only (npm run db:migrate).
     if (process.env.NODE_ENV === 'development') {
@@ -126,3 +170,19 @@ const shutdown = async (signal) => {
 
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT',  () => shutdown('SIGINT'));
+=======
+    // Use migrations in production; sync({ alter: true }) in dev for convenience
+    if (process.env.NODE_ENV !== 'production') {
+      await sequelize.sync({ alter: true });
+      console.log('✅  Models synchronised (alter mode).');
+    }
+
+    app.listen(PORT, () => {
+      console.log(`🚀  Artisan Bean Hub API running on http://localhost:${PORT}`);
+    });
+  } catch (err) {
+    console.error('❌  Unable to connect to the database:', err);
+    process.exit(1);
+  }
+})();
+>>>>>>> e894781abe9e9da34ab7766a384f0b3ac9492f74

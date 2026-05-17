@@ -93,7 +93,7 @@ export function StoryPage() {
             true foundation for extraordinary coffee — for the farmers who grow it, the community
             that gathers around it, and every guest who walks through our door.
           </p>
-          <div className="flex flex-wrap gap-8 text-center">
+          <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-6 sm:gap-8 text-center">
             {[
               { value: '2026', label: 'Year Founded' },
               { value: '100%', label: 'Vietnamese Sourced' },
@@ -235,7 +235,7 @@ export function StoryPage() {
             ].map((item, i) => (
               <div key={i} className="relative">
                 {i < 4 && (
-                  <div className="hidden md:block absolute top-8 right-0 w-full h-px bg-[#C4A882]/20 z-0" style={{ left: '60%', width: '40%' }} />
+                  <div className="hidden md:block absolute top-8 left-[60%] right-0 h-px bg-[#C4A882]/20 z-0" />
                 )}
                 <div className="relative z-10 text-center px-3">
                   <div className="w-16 h-16 rounded-full bg-[#3D2318] border-2 border-[#C4A882]/30 flex items-center justify-center mx-auto mb-4 text-[#C4A882]">

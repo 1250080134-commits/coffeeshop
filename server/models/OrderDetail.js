@@ -7,8 +7,13 @@
  *   product_id   – FK → products.id
  *   quantity     – positive integer
  *   unit_price   – price captured at time of order (snapshot)
+<<<<<<< HEAD
  *   grind_size      – grind option chosen at checkout (e.g. 'Pour Over')
  *   selected_weight – weight option chosen at checkout (e.g. '250g')
+=======
+ *
+ * The composite (order_id, product_id) pair is unique to prevent duplicate rows.
+>>>>>>> e894781abe9e9da34ab7766a384f0b3ac9492f74
  */
 
 module.exports = (sequelize, DataTypes) => {
@@ -50,6 +55,7 @@ module.exports = (sequelize, DataTypes) => {
           min: { args: [0], msg: 'Unit price must be >= 0.' },
         },
       },
+<<<<<<< HEAD
       grind_size: {
         type:      DataTypes.STRING(50),
         allowNull: true,
@@ -60,6 +66,8 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: true,
         comment:   'Weight option chosen at checkout, e.g. 250g, 500g, 1kg.',
       },
+=======
+>>>>>>> e894781abe9e9da34ab7766a384f0b3ac9492f74
     },
     {
       tableName:   'order_details',

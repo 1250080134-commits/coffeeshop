@@ -76,6 +76,7 @@ export function AdminUsers() {
         <div className="text-center py-20 text-[#8B5E3C]">Loading users…</div>
       ) : (
         <div className="bg-white rounded-2xl shadow-sm border border-[rgba(44,24,16,0.06)] overflow-hidden">
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-[#FAF3EB] border-b border-[#F0E4D4]">
@@ -129,6 +130,7 @@ export function AdminUsers() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>

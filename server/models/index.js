@@ -17,12 +17,20 @@ const sequelize = new Sequelize(
 );
 
 // ─── Load Models ─────────────────────────────────────────────────────────────
+<<<<<<< HEAD
 const User          = require('./User')(sequelize, DataTypes);
 const Category      = require('./Category')(sequelize, DataTypes);
 const Product       = require('./Product')(sequelize, DataTypes);
 const Order         = require('./Order')(sequelize, DataTypes);
 const OrderDetail   = require('./OrderDetail')(sequelize, DataTypes);
 const BrewingGuide  = require('./BrewingGuide')(sequelize, DataTypes);
+=======
+const User        = require('./User')(sequelize, DataTypes);
+const Category    = require('./Category')(sequelize, DataTypes);
+const Product     = require('./Product')(sequelize, DataTypes);
+const Order       = require('./Order')(sequelize, DataTypes);
+const OrderDetail = require('./OrderDetail')(sequelize, DataTypes);
+>>>>>>> e894781abe9e9da34ab7766a384f0b3ac9492f74
 
 // ─── Associations ─────────────────────────────────────────────────────────────
 
@@ -53,5 +61,8 @@ module.exports = {
   Product,
   Order,
   OrderDetail,
+<<<<<<< HEAD
   BrewingGuide,
+=======
+>>>>>>> e894781abe9e9da34ab7766a384f0b3ac9492f74
 };

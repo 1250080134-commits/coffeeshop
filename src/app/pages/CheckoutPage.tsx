@@ -272,18 +272,18 @@ export function CheckoutPage() {
                 )}
 
                 <div className="space-y-4">
-                  <div className="flex gap-4">
+                  <div className="flex flex-col sm:flex-row gap-4">
                     <ShipField label="Họ (Last Name)" name="lastName" half />
                     <ShipField label="Tên (First Name)" name="firstName" half />
                   </div>
                   <ShipField label="Email" name="email" type="email" />
                   <ShipField label="Số nhà, tên đường (Street Address)" name="street" />
                   <ShipField label="Phường/Xã (Ward/Commune)" name="ward" />
-                  <div className="flex gap-4">
+                  <div className="flex flex-col sm:flex-row gap-4">
                     <ShipField label="Quận/Huyện (District)" name="city" half />
                     <ShipField label="Tỉnh/Thành phố (Province/City)" name="province" half />
                   </div>
-                  <div className="flex gap-4">
+                  <div className="flex flex-col sm:flex-row gap-4">
                     <ShipField label="Mã bưu chính (Postal Code)" name="zip" half />
                     <div className="flex-1">
                       <label className="block text-xs text-[#8B5E3C] mb-1">Quốc gia (Country)</label>
@@ -344,7 +344,7 @@ export function CheckoutPage() {
                       className="rounded-2xl p-5 mb-2"
                       style={{ background: 'linear-gradient(135deg, #2C1810 0%, #4a2c1e 60%, #3d5836 100%)' }}
                     >
-                      <p className="text-[#C4A882] text-xs tracking-widest mb-6">ARTISAN BEAN HUB</p>
+                      <p className="text-[#C4A882] text-xs tracking-widest mb-6">FONDO</p>
                       <p className="text-[#FAF3EB] font-mono text-lg tracking-widest">
                         {payment.cardNumber
                           ? payment.cardNumber.replace(/(.{4})/g, '$1 ').trim()
@@ -392,7 +392,7 @@ export function CheckoutPage() {
                       {paymentErrors.cardNumber && <p className="text-xs text-red-500 mt-1">{paymentErrors.cardNumber}</p>}
                     </div>
 
-                    <div className="flex gap-4">
+                    <div className="flex flex-col sm:flex-row gap-4">
                       <div className="flex-1">
                         <label className="block text-xs text-[#8B5E3C] mb-1">Expiry Date</label>
                         <input
